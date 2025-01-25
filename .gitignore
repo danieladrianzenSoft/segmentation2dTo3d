@@ -2,6 +2,7 @@ slices_TestData/
 TestData/
 metadata_TestData.json
 slices/
+Data/
 metadata.json
 *.json
 *.dat
