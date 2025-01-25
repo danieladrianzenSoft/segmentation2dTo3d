@@ -1,0 +1,7 @@
+slices_TestData/
+TestData/
+metadata_TestData.json
+slices/
+metadata.json
+*.json
+*.dat
