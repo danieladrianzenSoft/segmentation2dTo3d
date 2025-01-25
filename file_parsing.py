@@ -3,26 +3,39 @@ import os
 import numpy as np
 from helper_methods import voxelize_dat_particles
 
-def parse_file(config, dat_files, json_files):
-    file_type = config["file_type"]
-    file_index = config["file_index"]
+def parse_file(config, selected_file):
+    """
+    Parse a single file and extract necessary information.
 
-    selected_file = dat_files[file_index - 1] if file_type == "dat" else json_files[file_index - 1]
+    Parameters:
+        config (dict): Configuration dictionary.
+        selected_file (str): Path to the selected file.
+
+    Returns:
+        tuple: (selected_file, particles, voxel_size, domain_size)
+    """
     print(f"Selected: {os.path.basename(selected_file)}")
 
-    if file_type == "dat":
+    if selected_file.endswith(".dat"):
         centers, radii = parse_dat_file(selected_file)
-        voxel_data = voxelize_dat_particles(centers, radii, voxel_size=config["voxelization_dx"])
-        return selected_file, voxel_data["particles"], voxel_data["voxel_size"], voxel_data["domain_size"]
+        voxel_data = voxelize_dat_particles(
+            centers, radii, voxel_size=config["voxelization_dx"]
+        )
+        return (
+            voxel_data["particles"],
+            voxel_data["voxel_size"],
+            voxel_data["domain_size"],
+        )
 
-    elif file_type == "json":
+    elif selected_file.endswith(".json"):
         parsed_data = parse_json_file(selected_file)
         return (
-            selected_file,
             parsed_data["particles"],
             parsed_data["voxel_size"],
             parsed_data["domain_size"],
         )
+    else:
+        raise ValueError(f"Unsupported file type for {selected_file}")
 
 def parse_dat_file(filepath):
     """

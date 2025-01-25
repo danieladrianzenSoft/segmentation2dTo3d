@@ -10,10 +10,12 @@ def save_slices_as_tiff(
         slice_coordinates, 
         voxel_size, 
         grid_size, 
+        num_slices,
+        slice_unit_spacing=None,
         axis='z', 
         output_dir="slices", 
         label_file_name=None,
-        metadata_path="metadata.json"
+        metadata_path="metadata.json",
     ):
     """
     Save slices as TIFF images and generate a metadata file.
@@ -26,6 +28,8 @@ def save_slices_as_tiff(
         axis (str): Axis along which the slices were taken ('x', 'y', 'z').
         output_dir (str): Directory to save the TIFF files.
         label_file_name (str): Identifier for the original file (e.g., .dat or .json).
+        num_slices (int): Number of slices extracted.
+        slice_unit_spacing (int): Spacing between slices, if applicable.
         metadata_path (str): Path to the centralized metadata JSON file.
     Returns:
         None
@@ -54,8 +58,12 @@ def save_slices_as_tiff(
         "voxel_size": voxel_size,
         "grid_size": grid_size,
         "axis": axis,
+        "num_slices": num_slices,
         "slices": [],
     }
+
+    if slice_unit_spacing is not None:
+        dataset_metadata["slice_unit_spacing"] = slice_unit_spacing
 
     for i, (slice_data, z_coord) in enumerate(zip(slices, slice_coordinates)):
         # Construct the filename

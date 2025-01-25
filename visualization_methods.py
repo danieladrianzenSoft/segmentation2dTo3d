@@ -106,7 +106,7 @@ def plot_particles(
     elif plot_method == 'go_batch':
         plot_with_plotly_batch(particles, voxel_centers, voxel_size, domain_size)
     elif plot_method == 'pv_polydata':
-        plot_with_pyvista_polydata(particles, voxel_centers, voxel_size, domain_size, slices, slice_coordinates, axis, cmap=cmap, show_legend=show_legend)
+        plot_with_pyvista_polydata(particles, voxel_centers, voxel_size, domain_size, grid_size, slices, slice_coordinates, axis, cmap=cmap, show_legend=show_legend)
     else:
         print(f"Plotting method {plot_method} is not valid.")
 
@@ -300,7 +300,10 @@ def plot_with_plotly_batch(particles, voxel_centers, voxel_size, domain_size, ba
     plot_duration = plot_end_time - plot_start_time
     print(f"Time taken for plotting: {plot_duration:.2f} seconds")
 
-def plot_with_pyvista_polydata(particles, voxel_centers, voxel_size, domain_size, slices=None, slice_positions=None, axis='z', cmap=None, show_legend=False):
+def plot_with_pyvista_polydata(particles, voxel_centers, voxel_size, domain_size, grid_size, slices=None, slice_positions=None, axis='z', cmap=None, show_legend=False):
+    if axis not in {'x', 'y', 'z'}:
+        raise ValueError(f"Invalid axis '{axis}'. Must be one of 'x', 'y', or 'z'.")
+    
     # Start timing for data preparation
     prep_start_time = time.time()
     
@@ -358,6 +361,11 @@ def plot_with_pyvista_polydata(particles, voxel_centers, voxel_size, domain_size
     # Start timing for plotting
     plot_start_time = time.time()
 
+    # Determine axis indices
+    axis_indices = {'x': 0, 'y': 1, 'z': 2}
+    axis_index = axis_indices[axis]
+    other_axes = [i for i in range(3) if i != axis_index]  # Non-chosen axes
+
     plotter = pv.Plotter()
     # plotter.add_mesh(
     #     combined_mesh, 
@@ -375,13 +383,13 @@ def plot_with_pyvista_polydata(particles, voxel_centers, voxel_size, domain_size
     
     if show_legend:
         legend_entries = [
-            (f"Particle {particle_label}", cmap(int(particle_label)))
+            (f"Particle {particle_label}", cmap.colors[label_to_index[particle_label]])
             for particle_label in particles.keys()
         ]
         plotter.add_legend(legend_entries, bcolor='white', size=(0.2, 0.2))
     
     if slices is not None and slice_positions is not None:
-        axis_index = {'x': 0, 'y': 1, 'z': 2}[axis]
+        # axis_index = {'x': 0, 'y': 1, 'z': 2}[axis]
         for pos in slice_positions:
             plane = pv.Plane(
                 center=(
@@ -394,8 +402,10 @@ def plot_with_pyvista_polydata(particles, voxel_centers, voxel_size, domain_size
                     1 if axis == 'y' else 0,
                     1 if axis == 'z' else 0,
                 ),
-                i_size=domain_size[(axis_index + 1) % 3],
-                j_size=domain_size[(axis_index + 2) % 3],
+                # i_size=domain_size[(axis_index + 1) % 3],
+                # j_size=domain_size[(axis_index + 2) % 3],
+                i_size=domain_size[other_axes[1]],  # Full span along the first orthogonal axis
+                j_size=domain_size[other_axes[0]], 
             )
             plotter.add_mesh(plane, color='white', opacity=0.4, show_edges=False)
 

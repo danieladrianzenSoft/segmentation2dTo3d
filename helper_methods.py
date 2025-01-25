@@ -1,3 +1,4 @@
+import random
 import time
 from scipy.ndimage import label
 import numpy as np
@@ -147,6 +148,96 @@ def voxelize_dat_particles(centers, radii, voxel_size=1):
         "particles": particles,
     }
 
+def determine_axis(config):
+    """
+    Selects an axis for slicing based on the configuration.
+
+    Parameters:
+        config (dict): Configuration dictionary with keys:
+                       - "random_axis" (bool): Whether to choose the axis randomly.
+                       - "axis" (str): Default axis to use if not random.
+
+    Returns:
+        str: The chosen axis ('x', 'y', or 'z').
+    """
+    if config.get("random_axis", False):
+        chosen_axis = random.choice(['x', 'y', 'z'])
+        print(f"Randomly selected axis for slicing: {chosen_axis}")
+    else:
+        chosen_axis = config.get("axis", 'z')
+        print(f"Using configured axis for slicing: {chosen_axis}")
+    return chosen_axis
+
+
+def determine_num_slices(grid_size, voxel_size, config):
+    """
+    Determine the number of slices to extract based on the configuration.
+
+    Parameters:
+        config (dict): Configuration dictionary containing:
+                       - grid_size
+                       - voxel_size
+                       - random_slice_spacing
+                       - num_slices
+                       - max_slices
+                       - axis
+
+    Returns:
+        int: Number of slices to extract.
+    """
+    if config.get("random_slice_spacing") is not None:
+        random_slice_spacing = config["random_slice_spacing"]
+
+        if random_slice_spacing is True:
+            slice_unit_spacing = random.randint(2, 6)
+            num_slices = calculate_num_slices(
+                grid_size=grid_size,
+                voxel_size=voxel_size,
+                slice_unit_spacing=slice_unit_spacing,
+                max_slices=config["max_slices"],
+                axis=config["axis"]
+            )
+
+            return num_slices, slice_unit_spacing
+    return config["num_slices"], None
+
+def calculate_num_slices(grid_size, voxel_size, slice_unit_spacing=None, max_slices=150, axis='z'):
+    """
+    Calculate the number of slices based on slice_unit_spacing or grid size.
+
+    Parameters:
+        grid_size (tuple): Shape of the 3D grid (nx, ny, nz).
+        voxel_size (float): Size of each voxel in real-world units.
+        slice_unit_spacing (int or None): Real domain spacing between slices in voxel units.
+        max_slices (int): Maximum allowable number of slices.
+        axis (str): Axis along which the slices are taken ('x', 'y', 'z').
+
+    Returns:
+        int: Number of slices.
+    """
+    axis_indices = {'x': 0, 'y': 1, 'z': 2}
+    axis_index = axis_indices[axis]
+
+    # Get the grid size along the specified axis
+    grid_length = grid_size[axis_index]
+
+    if slice_unit_spacing is not None:
+        # Ensure slice_unit_spacing is a valid random integer between 2 and 10
+        # if not (1 <= slice_unit_spacing <= 5):
+        #     raise ValueError("slice_unit_spacing must be an integer between 2 and 10.")
+        
+        # Calculate the number of slices based on spacing
+        num_slices = (grid_length // slice_unit_spacing) - 1
+    else:
+        raise ValueError("slice_unit_spacing must be provided for this calculation.")
+
+    # Clip the number of slices to the maximum allowed
+    num_slices = min(num_slices, max_slices)
+    
+    print(f"Number of slices to extract: {num_slices}")
+
+    return num_slices
+
 def extract_slices(particles, voxel_centers, voxel_size, grid_size, num_slices=5, axis='z'):
     """
     Extract slices at midpoint voxel indices in grid space and find intersecting particles.
@@ -166,16 +257,28 @@ def extract_slices(particles, voxel_centers, voxel_size, grid_size, num_slices=5
     # Map axis name to its index
     axis_indices = {'x': 0, 'y': 1, 'z': 2}
     axis_index = axis_indices[axis]
-    other_axes = [i for i in range(3) if i != axis_index]
+
+    # Determine orthogonal axes
+    if axis == 'z':
+        slice_shape = (grid_size[1], grid_size[0])  # y vs. x
+        coord_x, coord_y = 0, 1
+    elif axis == 'y':
+        slice_shape = (grid_size[2], grid_size[0])  # z vs. x
+        coord_x, coord_y = 0, 2
+    elif axis == 'x':
+        slice_shape = (grid_size[2], grid_size[1])  # z vs. y
+        coord_x, coord_y = 1, 2
+
 
     # Divide the domain into slabs in real-world space
-    domain_min = voxel_centers[:, axis_index].min()
-    domain_max = voxel_centers[:, axis_index].max()
+    domain_min = 0
+    domain_max = grid_size[axis_index] * voxel_size
     slab_boundaries = np.linspace(domain_min, domain_max, num_slices + 1)
     slice_midpoints = (slab_boundaries[:-1] + slab_boundaries[1:]) / 2  # Real-world midpoints
 
-    # Convert slice midpoints to grid indices
-    slice_indices = ((slice_midpoints - domain_min) / voxel_size).astype(int)
+    # Precompute minimum values for orthogonal axes
+    min_x = voxel_centers[:, coord_x].min()
+    min_y = voxel_centers[:, coord_y].min()
 
     # Debug: Print slice indices and midpoints
     # print(f"Slice Indices (grid space): {slice_indices}")
@@ -185,9 +288,8 @@ def extract_slices(particles, voxel_centers, voxel_size, grid_size, num_slices=5
     slices = []
 
     # Iterate through slice indices
-    for grid_index, real_coord in zip(slice_indices, slice_midpoints):
+    for real_coord in slice_midpoints:
         # Initialize a 2D grid for this slice
-        slice_shape = (grid_size[other_axes[1]], grid_size[other_axes[0]])  # Correct shape for orthogonal axes
         slice_data = np.zeros(slice_shape, dtype=int)
 
         # Iterate through particles
@@ -198,20 +300,53 @@ def extract_slices(particles, voxel_centers, voxel_size, grid_size, num_slices=5
             # Check if voxels are at the same grid level as the current slice
             in_slice_mask = (particle_centers[:, axis_index] >= real_coord - voxel_size / 2) & \
                             (particle_centers[:, axis_index] < real_coord + voxel_size / 2)
-            coords_in_slice = particle_centers[in_slice_mask][:, other_axes]
-
-            # Debug: Particle contribution
-            # print(f"Particle {particle_label}: {np.sum(in_slice_mask)} voxels in slice at z={real_coord:.2f}")
+            coords_in_slice = particle_centers[in_slice_mask]
 
             # Fill the slice grid
+            # for coord in coords_in_slice:
+            #     x, y = int(coord[coord_x] / voxel_size), int(coord[coord_y] / voxel_size)
+            #     if 0 <= x < slice_data.shape[1] and 0 <= y < slice_data.shape[0]:
+            #         slice_data[y, x] = particle_label
+            
+            # Fill the slice grid
             for coord in coords_in_slice:
-                x, y = int(coord[0] / voxel_size), int(coord[1] / voxel_size)
+                x = int((coord[coord_x] - min_x) / voxel_size)
+                y = int((coord[coord_y] - min_y) / voxel_size)
                 if 0 <= x < slice_data.shape[1] and 0 <= y < slice_data.shape[0]:
                     slice_data[y, x] = particle_label
+
 
         slices.append(slice_data)
 
     return slices, slice_midpoints
+
+def select_representative_slices(slices, slice_coordinates, num_to_select=5):
+    """
+    Select a fixed number of representative slices from the full set of slices.
+
+    Parameters:
+        slices (list): List of 2D numpy arrays representing all slices.
+        slice_coordinates (list): List of real-world slice midpoints corresponding to the slices.
+        num_to_select (int): Number of slices to select for plotting.
+
+    Returns:
+        tuple: A tuple containing:
+               - selected_slices (list): List of 2D numpy arrays of the selected slices.
+               - selected_coordinates (list): List of midpoints corresponding to the selected slices.
+    """
+    total_slices = len(slices)
+    if num_to_select >= total_slices:
+        # If fewer slices are available, return them all
+        return slices, slice_coordinates
+
+    # Select indices evenly spaced across the available slices
+    selected_indices = np.linspace(0, total_slices - 1, num=num_to_select, dtype=int)
+
+    # Extract the selected slices and their coordinates
+    selected_slices = [slices[i] for i in selected_indices]
+    selected_coordinates = [slice_coordinates[i] for i in selected_indices]
+
+    return selected_slices, selected_coordinates
 
 def validate_voxel_coordinates(coords, domain_size):
     """
