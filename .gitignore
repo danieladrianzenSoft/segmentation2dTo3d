@@ -3,6 +3,8 @@ TestData/
 metadata_TestData.json
 slices/
 Data/
+Labels_TestData/
+FlattenedData/
 metadata.json
 *.json
 *.dat

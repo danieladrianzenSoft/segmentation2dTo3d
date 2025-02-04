@@ -10,7 +10,7 @@ from grid_optimization_methods import downsample_particles
 
 def get_centered_grid(bounds, dx):
     """
-    Generate the 3D grid of voxel centers and calculate the grid size.
+    Generate the 3D grid of voxel centers and calculate the grid size. Maps to real 3d coordinates.
 
     Parameters:
         bounds (tuple): The bounds of the domain in real space as (xMin, xMax, yMin, yMax, zMin, zMax).
@@ -199,7 +199,8 @@ def determine_num_slices(grid_size, voxel_size, config):
             )
 
             return num_slices, slice_unit_spacing
-    return config["num_slices"], None
+    
+    return config.get("num_slices", 0), None
 
 def calculate_num_slices(grid_size, voxel_size, slice_unit_spacing=None, max_slices=150, axis='z'):
     """
@@ -238,7 +239,91 @@ def calculate_num_slices(grid_size, voxel_size, slice_unit_spacing=None, max_sli
 
     return num_slices
 
-def extract_slices(particles, voxel_centers, voxel_size, grid_size, num_slices=5, axis='z'):
+def extract_slices(particles, grid_size, voxel_size, num_slices=5, axis='z'):
+    """
+    Extract slices at voxel indices in grid space and find intersecting particles.
+
+    Parameters:
+        particles (dict): Dictionary mapping particle labels to 1D voxel indices.
+        grid_size (tuple): Shape of the 3D voxel grid (nx, ny, nz).
+        voxel_size (float): Size of each voxel in real-world units.
+        num_slices (int): Number of slices to extract.
+        axis (str): Axis along which to extract slices ('x', 'y', 'z').
+
+    Returns:
+        list: List of 2D numpy arrays representing slices.
+        list: List of real-world slice midpoints.
+    """
+    # Start timing slice extraction
+    slice_extraction_start_time = time.time()
+    
+    # Map axis name to its index
+    axis_indices = {'x': 0, 'y': 1, 'z': 2}
+    axis_index = axis_indices[axis]
+
+    # Determine slice shape and strides
+    if axis == 'z':
+        slice_shape = (grid_size[1], grid_size[0])  # (Y, X)
+        stride = grid_size[0] * grid_size[1]  # Steps for moving in Z
+    elif axis == 'y':
+        slice_shape = (grid_size[2], grid_size[0])  # (Z, X)
+        stride = grid_size[0]  # Steps for moving in Y
+    elif axis == 'x':
+        slice_shape = (grid_size[2], grid_size[1])  # (Z, Y)
+        stride = 1  # Steps for moving in X
+
+    # Generate evenly spaced slice indices
+    slice_indices = np.linspace(0, grid_size[axis_index] - 1, num_slices, dtype=int)
+    slice_midpoints = slice_indices * voxel_size + voxel_size / 2
+
+    # Initialize all slices at once using NumPy (batch processing)
+    slices = np.zeros((num_slices, *slice_shape), dtype=np.uint16)
+
+    # Convert particle data into single NumPy arrays for efficiency
+    all_particle_labels = []
+    all_voxel_indices = []
+
+    for particle_label, voxel_indices in particles.items():
+        all_particle_labels.append(np.full(len(voxel_indices), particle_label, dtype=np.uint16))
+        all_voxel_indices.append(voxel_indices)
+
+    # Flatten all particles into a single NumPy array (batch operation)
+    all_particle_labels = np.concatenate(all_particle_labels)
+    all_voxel_indices = np.concatenate(all_voxel_indices)
+
+    # Compute slice positions for all voxels
+    voxel_slice_positions = (all_voxel_indices // stride) % grid_size[axis_index]
+
+    # Process all slices in a vectorized manner
+    for i, slice_idx in enumerate(slice_indices):
+        # Find which voxels belong to this slice
+        mask = voxel_slice_positions == slice_idx
+        filtered_indices = all_voxel_indices[mask]
+        filtered_labels = all_particle_labels[mask]
+
+        # Ensure all three indices are defined in every case
+        x_indices = (filtered_indices % grid_size[0])  # Default
+        y_indices = (filtered_indices // grid_size[0]) % grid_size[1]  # Default
+        z_indices = filtered_indices // (grid_size[0] * grid_size[1])  # Default
+
+        if axis == 'z':
+            # Z-axis slices → Use (Y, X)
+            slices[i, y_indices, x_indices] = filtered_labels
+        elif axis == 'y':
+            # Y-axis slices → Use (Z, X)
+            slices[i, z_indices, x_indices] = filtered_labels
+        elif axis == 'x':
+            # X-axis slices → Use (Z, Y)
+            slices[i, z_indices, y_indices] = filtered_labels
+            
+    # End surface extraction timer
+    slice_extraction_end_time = time.time()
+    slice_extraction_duration = slice_extraction_end_time - slice_extraction_start_time
+    print(f"Time taken for slice voxel extraction: {slice_extraction_duration:.2f} seconds")
+
+    return list(slices), slice_midpoints
+
+def extract_slices_old(particles, voxel_centers, voxel_size, grid_size, num_slices=5, axis='z'):
     """
     Extract slices at midpoint voxel indices in grid space and find intersecting particles.
 
@@ -258,7 +343,7 @@ def extract_slices(particles, voxel_centers, voxel_size, grid_size, num_slices=5
     axis_indices = {'x': 0, 'y': 1, 'z': 2}
     axis_index = axis_indices[axis]
 
-    # Determine orthogonal axes
+    # Determine orthogonal axes, numpy defines y,z
     if axis == 'z':
         slice_shape = (grid_size[1], grid_size[0])  # y vs. x
         coord_x, coord_y = 0, 1

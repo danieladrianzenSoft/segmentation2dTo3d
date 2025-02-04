@@ -304,6 +304,9 @@ def plot_with_pyvista_polydata(particles, voxel_centers, voxel_size, domain_size
     if axis not in {'x', 'y', 'z'}:
         raise ValueError(f"Invalid axis '{axis}'. Must be one of 'x', 'y', or 'z'.")
     
+    # Flag to show or hide slices
+    show_slices = True
+
     # Start timing for data preparation
     prep_start_time = time.time()
     
@@ -388,7 +391,7 @@ def plot_with_pyvista_polydata(particles, voxel_centers, voxel_size, domain_size
         ]
         plotter.add_legend(legend_entries, bcolor='white', size=(0.2, 0.2))
     
-    if slices is not None and slice_positions is not None:
+    if slices is not None and slice_positions is not None and show_slices == True:
         # axis_index = {'x': 0, 'y': 1, 'z': 2}[axis]
         for pos in slice_positions:
             plane = pv.Plane(
@@ -421,7 +424,7 @@ def plot_with_pyvista_polydata(particles, voxel_centers, voxel_size, domain_size
 
 def plot_slices_as_images(slices, slice_coordinates, 
                           voxel_size, grid_size, axis='z', 
-                          cmap=None):
+                          cmap=None, debug_mode=False):
     """
     Plot slices as 2D images with axes scaled to real-world coordinates.
 
@@ -437,10 +440,12 @@ def plot_slices_as_images(slices, slice_coordinates,
     """
     
     # Use provided unique colors
-    if cmap is None:
+    if cmap is None or debug_mode==False:
         cmap = ListedColormap(['black', '#00FF00'])  # Default fluorescent green
 
     num_slices = len(slices)
+    if num_slices == 0: return
+
     fig, axes = plt.subplots(1, num_slices, figsize=(5 * num_slices, 5), constrained_layout=True)
 
     if num_slices == 1:
@@ -466,7 +471,6 @@ def plot_slices_as_images(slices, slice_coordinates,
             slice_data,
             cmap=cmap,
             origin='lower',
-            extent=extent,
             interpolation='nearest',
             vmin=0, 
             vmax=len(cmap.colors) - 1
@@ -478,7 +482,7 @@ def plot_slices_as_images(slices, slice_coordinates,
         ax.set_ylabel(f"{other_axes[1]} (real-world units)")
 
         # Ensure correct aspect ratio
-        ax.set_aspect('equal')
+        # ax.set_aspect('equal')
 
         # Remove spines and ticks for a clean look
         ax.spines[:].set_visible(False)
@@ -516,3 +520,58 @@ def create_colormap(particles, make_unique=True):
         cmap = ListedColormap([(0, 0, 0), (0.5, 1.0, 0.0)])  # Black and fluorescent green
 
     return cmap
+
+def visualize_voxel_grid(npz_file, axis=2, num_slices=5, slice_coordinates=None, voxel_size=2.0, cmap="jet"):
+    """
+    Visualizes slices of a 3D voxel grid from a saved .npz label file, allowing for specific slice coordinates.
+
+    Parameters:
+        npz_file (str): Path to the .npz file containing the voxel grid.
+        slice_axis (str): The axis along which to slice (0=X, 1=Y, 2=Z).
+        num_slices (int): Number of slices to visualize (ignored if `slice_midpoints` is provided).
+        slice_midpoints (list or None): List of real-world slice positions (optional).
+        voxel_size (float): Size of each voxel in real-world units.
+    """
+    # Load the .npz file
+    data = np.load(npz_file)
+    voxel_grid = data["voxel_grid"]  # (nx, ny, nz) 3D array
+    grid_size = data["grid_size"]  # (nx, ny, nz)
+
+    # print(f"Voxel Grid Shape: {voxel_grid.shape}")
+    # print(f"Unique Labels in Grid: {np.unique(voxel_grid)}")  # Check particle labels
+
+    if axis == 'z':  # Slicing along z-axis
+        slice_axis = 2
+    elif axis == 'y':  # Slicing along y-axis
+        slice_axis = 1
+    elif axis == 'x':  # Slicing along x-axis
+        slice_axis = 0
+
+    # Convert real-world slice positions into grid indices
+    if slice_coordinates is not None:
+        slice_indices = np.array((np.array(slice_coordinates) / voxel_size).astype(int))
+        slice_indices = np.clip(slice_indices, 0, grid_size[slice_axis] - 1)  # Ensure within bounds
+    else:
+        # Evenly spaced slices if no specific midpoints provided
+        slice_indices = np.linspace(0, grid_size[slice_axis] - 1, num_slices, dtype=int)
+
+    # Create figure
+    fig, axes = plt.subplots(1, len(slice_indices), figsize=(15, 5))
+
+    # Plot slices
+    for i, (idx, real_coord) in enumerate(zip(slice_indices, slice_coordinates if slice_coordinates is not None else slice_indices * voxel_size)):
+        if slice_axis == 0:
+            slice_data = voxel_grid[idx, :, :]  # X-axis slices
+        elif slice_axis == 1:
+            slice_data = voxel_grid[:, idx, :]  # Y-axis slices
+        else:
+            slice_data = voxel_grid[:, :, idx]  # Z-axis slices (default)
+
+        ax = axes[i]
+        ax.imshow(slice_data, cmap=cmap)
+        # ax.set_title(f"Slice {idx} (Real: {idx * voxel_size:.2f})")
+        ax.set_title(f"Slice {idx} (Real: {real_coord:.2f})")  # Show exact real coordinate
+        ax.axis("off")
+
+    plt.tight_layout()
+    plt.show(block=False)

@@ -1,7 +1,9 @@
 import json
 import os
 import numpy as np
+from data_generation_methods import save_voxelized_data_as_json
 from helper_methods import voxelize_dat_particles
+from visualization_methods import plot_spheres_plotly
 
 def parse_file(config, selected_file):
     """
@@ -18,9 +20,19 @@ def parse_file(config, selected_file):
 
     if selected_file.endswith(".dat"):
         centers, radii = parse_dat_file(selected_file)
+        if centers.size == 0 or radii.size == 0:
+            print(f"Skipping processing for file {selected_file}: No valid particles found.")
+            return
         voxel_data = voxelize_dat_particles(
             centers, radii, voxel_size=config["voxelization_dx"]
         )
+
+        if config.get("dat_to_json", False):
+            # Save voxelized representation as JSON
+            output_dir = config.get("output_dir", "./FlattenedDataJson")
+            json_path = save_voxelized_data_as_json(voxel_data, selected_file, output_dir=output_dir)
+            # plot_spheres_plotly(centers, radii)
+
         return (
             voxel_data["particles"],
             voxel_data["voxel_size"],
@@ -36,11 +48,11 @@ def parse_file(config, selected_file):
         )
     else:
         raise ValueError(f"Unsupported file type for {selected_file}")
-
+    
 def parse_dat_file(filepath):
     """
     Parse a .dat file to extract x, y, z coordinates and radii of spheres.
-    
+
     Parameters:
         filepath (str): Path to the .dat file.
 
@@ -51,20 +63,64 @@ def parse_dat_file(filepath):
     """
     centers = []
     radii = []
-    
+
     with open(filepath, 'r') as file:
-        for line in file:
+        for line_number, line in enumerate(file, start=1):
             line = line.strip()
-            if line.startswith('#'):
-                continue  # Skip any line starting with '#'
-            elif line:  # Process non-empty lines
-                values = list(map(float, line.split()))
-                if len(values) == 4:
-                    x, y, z, r = values
-                    centers.append([x, y, z])
-                    radii.append(r)
-                    
+
+            # Skip empty lines or lines starting with non-numeric characters
+            if not line or not line[0].isdigit():
+                continue
+
+            # Attempt to split and validate the line
+            values = line.split()
+            if len(values) != 4:
+                continue
+
+            try:
+                # Convert values to floats
+                x, y, z, r = map(float, values)
+                centers.append([x, y, z])
+                radii.append(r)
+            except ValueError:
+                print(f"Skipping line {line_number}: Could not convert all columns to float.")
+                continue
+    
+    # Check if results are empty and return an empty tuple if no valid data
+    if not centers or not radii:
+        print(f"No valid data found in file: {filepath}. Skipping this file.")
+        return np.array([]), np.array([])
+
     return np.array(centers), np.array(radii)
+
+# def parse_dat_file(filepath):
+#     """
+#     Parse a .dat file to extract x, y, z coordinates and radii of spheres.
+    
+#     Parameters:
+#         filepath (str): Path to the .dat file.
+
+#     Returns:
+#         tuple: A tuple containing:
+#             - centers (numpy.ndarray): Array of x, y, z coordinates.
+#             - radii (numpy.ndarray): Array of radii.
+#     """
+#     centers = []
+#     radii = []
+    
+#     with open(filepath, 'r') as file:
+#         for line in file:
+#             line = line.strip()
+#             if line.startswith('#'):
+#                 continue  # Skip any line starting with '#'
+#             elif line:  # Process non-empty lines
+#                 values = list(map(float, line.split()))
+#                 if len(values) == 4:
+#                     x, y, z, r = values
+#                     centers.append([x, y, z])
+#                     radii.append(r)
+                    
+#     return np.array(centers), np.array(radii)
 
 def parse_json_file(filepath):
     """
@@ -88,21 +144,27 @@ def parse_json_file(filepath):
         if len(data) == 0:
             raise ValueError("JSON file is empty or contains an empty list.")
         data = data[0]  # Access the first element (assuming it contains the dictionary)
-
-    # Validate required keys
-    required_keys = ["voxel_size", "domain_size", "bead_data"]
-    if not all(key in data for key in required_keys):
-        raise KeyError(f"JSON file is missing required keys: {required_keys}")
+    
+    # Ensure it's a dictionary
+    if not isinstance(data, dict):
+        raise ValueError("Invalid JSON structure: Expected a dictionary at the root.")
 
     # Extract relevant data
-    voxel_size = data["voxel_size"]
-    domain_size = tuple(data["domain_size"])  # Ensure it's a tuple for easier usage
+    voxel_size = data.get("voxel_size")
+    domain_size = tuple(data.get("domain_size", ()))  # Ensure it's a tuple for easier usage
     voxel_count = data.get("voxel_count", None)  # Optional, not always required
-    bead_data = data["bead_data"]
+    bead_data = data.get("bead_data", data.get("beads", None))
 
     # Validate domain_size
-    if not all(isinstance(dim, int) and dim > 0 for dim in domain_size):
+    if not all(isinstance(dim, (int, float)) and dim > 0 for dim in domain_size):
         raise ValueError(f"Invalid domain_size: {domain_size}")
+    
+    # Try extracting 'bead_data' first, then fall back to 'beads'
+    if bead_data is None:
+        raise KeyError("JSON file is missing both 'bead_data' and 'beads' keys.")
+
+    # Convert domain_size to integers if necessary
+    domain_size = tuple(int(dim) for dim in domain_size)
 
     # Parse particle data
     particles = {}
