@@ -11,6 +11,7 @@ kiwisolver==1.4.8
 matplotlib==3.10.0
 mayavi==4.8.2
 numpy==2.2.2
+opencv-python==4.11.0.86
 packaging==24.2
 pandas==2.2.3
 pillow==11.1.0
