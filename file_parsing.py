@@ -93,35 +93,6 @@ def parse_dat_file(filepath):
 
     return np.array(centers), np.array(radii)
 
-# def parse_dat_file(filepath):
-#     """
-#     Parse a .dat file to extract x, y, z coordinates and radii of spheres.
-    
-#     Parameters:
-#         filepath (str): Path to the .dat file.
-
-#     Returns:
-#         tuple: A tuple containing:
-#             - centers (numpy.ndarray): Array of x, y, z coordinates.
-#             - radii (numpy.ndarray): Array of radii.
-#     """
-#     centers = []
-#     radii = []
-    
-#     with open(filepath, 'r') as file:
-#         for line in file:
-#             line = line.strip()
-#             if line.startswith('#'):
-#                 continue  # Skip any line starting with '#'
-#             elif line:  # Process non-empty lines
-#                 values = list(map(float, line.split()))
-#                 if len(values) == 4:
-#                     x, y, z, r = values
-#                     centers.append([x, y, z])
-#                     radii.append(r)
-                    
-#     return np.array(centers), np.array(radii)
-
 def parse_json_file(filepath):
     """
     Parse a JSON file to extract voxel data for particles and domain information.
