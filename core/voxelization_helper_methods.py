@@ -3,10 +3,9 @@ import time
 from scipy.ndimage import label
 import numpy as np
 import warnings
-import math
-from scipy.spatial import cKDTree
-
-from grid_optimization_methods import downsample_particles
+# import math
+# from scipy.spatial import cKDTree
+# from grid_optimization_methods import downsample_particles
 
 def get_centered_grid(bounds, dx):
     """
@@ -24,15 +23,22 @@ def get_centered_grid(bounds, dx):
     x_min, x_max, y_min, y_max, z_min, z_max = bounds
 
     # Calculate the grid size
-    nx = int((x_max - x_min) / dx)
-    ny = int((y_max - y_min) / dx)
-    nz = int((z_max - z_min) / dx)
+    # nx = int((x_max - x_min) / dx)
+    # ny = int((y_max - y_min) / dx)
+    # nz = int((z_max - z_min) / dx)
+    nx = int(round((x_max - x_min) / dx))  # Ensure we have the full range
+    ny = int(round((y_max - y_min) / dx))  # Ensure we have the full range
+    nz = int(round((z_max - z_min) / dx))
+
     grid_size = (nx, ny, nz)
 
     # Generate voxel centers directly
-    z = np.linspace(z_min + dx / 2, z_max - dx / 2, nz)
-    y = np.linspace(y_min + dx / 2, y_max - dx / 2, ny)
-    x = np.linspace(x_min + dx / 2, x_max - dx / 2, nx)
+    z = np.linspace(z_min + dx / 2, z_max - dx / 2, nz, endpoint=True)
+    y = np.linspace(y_min + dx / 2, y_max - dx / 2, ny, endpoint=True)
+    x = np.linspace(x_min + dx / 2, x_max - dx / 2, nx, endpoint=True)
+    # z = np.arange(z_min + dx / 2, z_max, dx)
+    # y = np.arange(y_min + dx / 2, y_max, dx)
+    # x = np.arange(x_min + dx / 2, x_max, dx)
 
     # Create the 3D grid
     zzz, yyy, xxx = np.meshgrid(z, y, x, indexing="ij")
@@ -43,6 +49,9 @@ def get_centered_grid(bounds, dx):
                                      zzz.ravel()))
     
     return voxel_centers, grid_size
+
+def coords_to_index(x, y, z, nx, ny):
+    return x + y * nx + z * (nx * ny)
 
 def voxelize_dat_particles(centers, radii, voxel_size=1):
     """
@@ -274,7 +283,7 @@ def extract_slices(particles, grid_size, voxel_size, num_slices=5, axis='z'):
 
     # Generate evenly spaced slice indices
     slice_indices = np.linspace(0, grid_size[axis_index] - 1, num_slices, dtype=int)
-    slice_midpoints = slice_indices * voxel_size + voxel_size / 2
+    slice_midpoints = slice_indices
 
     # Initialize all slices at once using NumPy (batch processing)
     slices = np.zeros((num_slices, *slice_shape), dtype=np.uint16)

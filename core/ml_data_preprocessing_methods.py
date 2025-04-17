@@ -232,18 +232,3 @@ def preprocess_dataset(metadata_path, labels_dir, slices_dir, output_labels_dir,
     preprocess_slices(slices_dir, output_slices_dir, max_grid_size)
 
     print("\n✅ Preprocessing Completed!")
-
-def main():
-    # Define directories
-    raw_labels_dir = "/Users/mimc/Documents/MIMC/MaterialsAI/DanielAdrianzen/segmentation_2D3D/labels"
-    raw_slices_dir = "/Users/mimc/Documents/MIMC/MaterialsAI/DanielAdrianzen/segmentation_2D3D/slices"
-    preprocessed_labels_dir = "/Users/mimc/Documents/MIMC/MaterialsAI/DanielAdrianzen/segmentation_2D3D/preprocessed_labels_512x512"
-    preprocessed_slices_dir = "/Users/mimc/Documents/MIMC/MaterialsAI/DanielAdrianzen/segmentation_2D3D/preprocessed_slices_512x512"
-    metadata_path = "/Users/mimc/Documents/MIMC/MaterialsAI/DanielAdrianzen/segmentation_2D3D/metadata.json"
-    max_grid_size = 512
-
-    # Preprocess everything
-    preprocess_dataset(metadata_path, raw_labels_dir, raw_slices_dir, preprocessed_labels_dir, preprocessed_slices_dir, max_grid_size)
-
-if __name__ == "__main__":
-    main()

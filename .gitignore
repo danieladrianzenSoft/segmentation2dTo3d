@@ -1,10 +1,6 @@
-slices_TestData/
-TestData/
-metadata_TestData.json
-slices/
-Data/
-Labels_TestData/
-FlattenedData/
-metadata.json
+temp/
+data/
 *.json
 *.dat
+__pycache__
+.vscode

@@ -1,3 +1,4 @@
+import json
 import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
@@ -8,8 +9,12 @@ from matplotlib.colors import ListedColormap, to_hex
 import time
 from typing import Literal
 from pathlib import Path
-
-from grid_optimization_methods import extract_surface_voxels
+from plyfile import PlyData
+import os
+import matplotlib.pyplot as plt
+# from mpl_toolkits.mplot3d import Axes3D
+import cv2
+from core.grid_optimization_methods import extract_surface_voxels
 
 def plot_spheres_plotly(centers, radii):
     """
@@ -521,6 +526,131 @@ def create_colormap(particles, make_unique=True):
 
     return cmap
 
+def plot_pointcloud_with_slices(base_file_name, label_dir, slice_dir, metadata_path, num_slices=20, axis='z'):
+    """
+    Visualizes a 3D point cloud (from `.ply` file) and overlays 2D slices (from `.tiff` files).
+    
+    Parameters:
+        base_file_name (str): Base name for files.
+        label_dir (str): Directory containing the `.ply` point cloud.
+        slice_dir (str): Directory containing the TIFF slice images.
+        metadata_path (str): Path to the metadata JSON file.
+        num_slices (int): Number of slices to visualize.
+        axis (str): Axis along which slices were taken ('x', 'y', 'z').
+
+    Returns:
+        None
+    """
+
+    metadata_file = Path(metadata_path)
+
+    if not metadata_file.exists():
+        print(f"❌ Metadata file not found: {metadata_path}")
+        return
+
+    # 🔹 Load slice metadata
+    with open(metadata_file, "r") as f:
+        metadata = json.load(f)
+
+    dataset_metadata = next((s for s in metadata["scaffolds"] if s["filename"] == base_file_name), None)
+    if not dataset_metadata:
+            print(f"❌ No metadata found for {base_file_name}.")
+            return
+    
+    slices_info = dataset_metadata["slices"]
+    
+    # 🔹 Auto-detect point cloud format (.ply or .npy)
+    ply_path = os.path.join(label_dir, f"{base_file_name}_label.ply")
+    npy_path = os.path.join(label_dir, f"{base_file_name}_label.npy")
+
+    if os.path.exists(ply_path):
+        print(f"✅ Loading .PLY file: {ply_path}")
+        ply_data = PlyData.read(ply_path)
+        vertex = ply_data['vertex']
+        x_points = np.array(vertex['x'])
+        y_points = np.array(vertex['y'])
+        z_points = np.array(vertex['z'])
+
+    elif os.path.exists(npy_path):
+        print(f"✅ Loading .NPY file: {npy_path}")
+        pointcloud = np.load(npy_path)  # Shape: (N, 4) → (x, y, z, label)
+        x_points, y_points, z_points = pointcloud[:, 0], pointcloud[:, 1], pointcloud[:, 2]
+
+    else:
+        print(f"❌ No valid point cloud file found for {base_file_name}. Expected `.ply` or `.npy`.")
+        return
+
+    print(f"✅ Loaded point cloud (Points: {len(x_points)})")
+
+    # 🔹 Create PyVista plotter
+    plotter = pv.Plotter()
+
+    # 🔹 Create and add point cloud mesh
+    pointcloud_mesh = pv.PolyData(np.column_stack((x_points, y_points, z_points)))
+    plotter.add_mesh(pointcloud_mesh, color="blue", point_size=2, opacity=0.1, label="Point Cloud")
+
+    # 🔹 Select evenly spaced slices for visualization
+    total_slices = len(slices_info)
+    selected_slices = [slices_info[i] for i in np.linspace(0, total_slices - 1, num_slices, dtype=int)]
+
+    # 🔹 Overlay slices in 3D (based on metadata.json)
+    for slice_info in selected_slices:
+        slice_path = os.path.join(slice_dir, slice_info["filename"])
+        grid_position = slice_info["grid_position"]  # Stored in grid space
+
+        slice_file = Path(slice_path)
+
+        if not slice_file.exists():
+            print(f"⚠️ Missing slice file: {slice_path}")
+            continue
+
+        # 🔹 Load the 2D slice image
+        slice_img = cv2.imread(str(slice_file), cv2.IMREAD_GRAYSCALE)
+        if slice_img is None:
+            print(f"❌ Error loading slice: {slice_path}")
+            continue
+
+        # 🔹 Fix orientation (flip Y-axis)
+        # slice_img = cv2.flip(slice_img, 0)
+
+        print(f"✅ Loaded slice: {slice_path} (Shape: {slice_img.shape})")
+
+        # 🔹 Convert 2D slice into 3D grid positions
+        height, width = slice_img.shape
+        y_indices, x_indices = np.nonzero(slice_img)  # Find nonzero pixels (particles)
+
+        # Check if slice contains any points before proceeding
+        if len(x_indices) == 0 or len(y_indices) == 0:
+            print(f"⚠️ Slice {slice_path} contains no nonzero pixels (empty mesh). Skipping.")
+            continue
+
+        # Assign fixed slice coordinate along the given axis
+        grid_x = x_indices  # Already in grid space
+        grid_y = y_indices  # Already in grid space
+        grid_z = np.full_like(x_indices, grid_position, dtype=int)
+
+        if axis == 'x':
+            slice_voxels = np.column_stack((grid_z, grid_x, grid_y))  # Projected along X
+        elif axis == 'y':
+            slice_voxels = np.column_stack((grid_x, grid_z, grid_y))  # Projected along Y
+        else:  # axis == 'z'
+            slice_voxels = np.column_stack((grid_x, grid_y, grid_z))  # Projected along Z
+
+        # 🔹 Create PyVista mesh for the slice projection
+        slice_mesh = pv.PolyData(slice_voxels)
+
+        # Check if the mesh is empty
+        if slice_mesh.n_points == 0:
+            print(f"⚠️ Slice {slice_path} produced an empty mesh. Skipping visualization.")
+            continue  # Skip adding empty slices
+
+        plotter.add_mesh(slice_mesh, color="red", point_size=5, opacity=1.0, label=f"Slice {grid_position}")
+
+    # 🔹 Configure the plotter
+    plotter.add_axes(interactive=True)
+    plotter.show_bounds(grid=True, location="outer", xtitle="X", ytitle="Y", ztitle="Z")
+    plotter.show()
+
 def visualize_voxel_grid(npz_file, axis=2, num_slices=5, slice_coordinates=None, voxel_size=2.0, cmap="jet"):
     """
     Visualizes slices of a 3D voxel grid from a saved .npz label file, allowing for specific slice coordinates.
@@ -575,3 +705,78 @@ def visualize_voxel_grid(npz_file, axis=2, num_slices=5, slice_coordinates=None,
 
     plt.tight_layout()
     plt.show(block=False)
+
+def plot_padded_slice_with_pointcloud(slice_path, pointcloud_path, voxel_size, slice_index, base_file_name, axis='z'):
+    """
+    Plots a single padded 2D slice overlayed with the 3D point cloud.
+
+    Parameters:
+        slice_path (str): Path to the padded TIFF image.
+        pointcloud_path (str): Path to the PLY point cloud file.
+        voxel_size (float): Size of each voxel in real-world units.
+        slice_index (int): Index of the slice to visualize in 3D.
+        axis (str): Axis along which the slices were taken ('x', 'y', 'z').
+        
+    Returns:
+        None
+    """
+
+    # slice file path
+    slice_path = os.path.join(slice_path, f"{base_file_name}_slice_{slice_index:03d}.tiff")
+    label_path = os.path.join(pointcloud_path, f"{base_file_name}_label.ply")
+
+    # 🔹 Load the padded slice
+    slice_img = cv2.imread(slice_path, cv2.IMREAD_GRAYSCALE)
+    if slice_img is None:
+        print(f"❌ Error: Could not load slice at {slice_path}")
+        return
+    
+    print(f"✅ Loaded padded slice: {slice_path} (Shape: {slice_img.shape})")
+
+    # 🔹 Load the point cloud
+    ply_data = PlyData.read(label_path)
+    vertex = ply_data['vertex']
+    
+    x_points = np.array(vertex['x'])
+    y_points = np.array(vertex['y'])
+    z_points = np.array(vertex['z'])
+
+    print(f"✅ Loaded point cloud: {label_path} (Points: {len(x_points)})")
+
+    # 🔹 Convert slice to 3D coordinates
+    height, width = slice_img.shape
+    y_indices, x_indices = np.nonzero(slice_img)  # Find nonzero pixels (particles)
+    
+    # Convert 2D indices to 3D world coordinates
+    slice_voxels = []
+    for x, y in zip(x_indices, y_indices):
+        real_x = x * voxel_size
+        real_y = y * voxel_size
+        real_z = slice_index * voxel_size  # Position along slicing axis
+        slice_voxels.append((real_x, real_y, real_z))
+
+    slice_voxels = np.array(slice_voxels)
+    
+    print(f"✅ Extracted {len(slice_voxels)} 3D points from the padded slice.")
+
+    # 🔹 Plot in 3D
+    fig = plt.figure(figsize=(10, 7))
+    ax = fig.add_subplot(111, projection='3d')
+    
+    # Plot point cloud
+    ax.scatter(x_points, y_points, z_points, c='b', marker='o', alpha=0.2, label="Point Cloud (3D)")
+
+    # Plot slice voxels
+    if slice_voxels.size > 0:
+        ax.scatter(slice_voxels[:, 0], slice_voxels[:, 1], slice_voxels[:, 2], 
+                   c='r', marker='s', alpha=1.0, label="Padded Slice (Projected)")
+
+    # Labels and legend
+    ax.set_xlabel('X (Real-World Units)')
+    ax.set_ylabel('Y (Real-World Units)')
+    ax.set_zlabel('Z (Slice Position)')
+    ax.set_title(f'3D Overlay of Padded Slice #{slice_index} and Point Cloud')
+    ax.legend()
+    plt.show()
+
+    print("✅ Visualization complete!")
