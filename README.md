@@ -16,7 +16,6 @@ python run.py --list lists all available workflows
 ## Architecture
 The code consists of 3 main folders:
 
-	- workflows/ 			: contains config variables for all available workflows, returned via
-							  get_config()
+	- workflows/ 			: contains config variables for all available workflows, returned via get_config()
 	- workflow_runner/ 		: main logic to run a specific workflow, executed via run()
 	- core/					: all business logic and reusable functions used in various workflows
