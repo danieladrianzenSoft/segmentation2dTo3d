@@ -16,7 +16,7 @@ shared_runner_map = {
     "voxelize_into_json": "ml_data_generation",
     "voxelize_into_json_test": "ml_data_generation",
     "ml_generation_confirmation": "ml_data_generation",
-    "visualize_voxelized_domain": "ml_data_generation",
+    # "visualize_voxelized_domain": "ml_data_generation",
     # Add more mappings here if needed
 }
 

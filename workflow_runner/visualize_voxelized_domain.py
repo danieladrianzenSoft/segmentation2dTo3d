@@ -1,8 +1,8 @@
-import os
 from core.file_parsing_methods import parse_file
-from core.mesh_generation_methods import generate_mesh_marching_cubes
-from core.scraping_methods import get_files, select_input_file
+from core.grid_optimization_methods import process_particles
 from core.voxelization_helper_methods import get_centered_grid
+from core.scraping_methods import get_files, select_input_file
+from core.visualization_methods import create_colormap, plot_voxelized_domain
 
 def process_file(selected_file, config):
     # Select and parse file
@@ -19,7 +19,7 @@ def process_file(selected_file, config):
         bounds = (0, domain_size[0], 0, domain_size[1], 0, domain_size[2])
     else:
         bounds = tuple(domain_size)
-    
+
     voxel_centers, grid_size = get_centered_grid(bounds, voxel_size)
 
     if domain_type == "pore":
@@ -42,30 +42,42 @@ def process_file(selected_file, config):
             if not domain_data:
                 print("⚠️ No interior pores found to plot.")
                 return
+
+    if config.get("downsample_factor") and config.get("max_particles"):
+        domain_data = process_particles(
+            domain_data,
+            voxel_centers,
+            grid_size,
+            downsample_factor=config["downsample_factor"],
+            max_particles=config["max_particles"],
+        )
     
-	# Generate .glb file
-    output_dir = config.get("output_dir")
-    output_path = os.path.join(output_dir, f"{os.path.basename(selected_file).split('.')[0]}.glb")
-    # generate_glb_file_convex_hull(surface_particles, voxel_centers, voxel_size, output_path)
-    # generate_glb_file_poisson(surface_particles, voxel_centers, voxel_size, output_path, method="bpa")
-    # generate_glb_file_delauney(
-    #     surface_particles, 
-    #     voxel_centers, 
-    #     voxel_size, 
-    #     output_path, 
-    # )
-    # generate_glb_file_from_surface(surface_particles, voxel_centers, voxel_size, output_path)
-    generate_mesh_marching_cubes(domain_data, voxel_centers, voxel_size, output_path)
-
-def run(config):
-    dat_files, json_files, npz_files = get_files(config["input_dir"])
-
-    if config["batch_process"]:
-        files_to_process = json_files
+    if domain_type == "pore":
+        label = "Pores (Interior Only)" if not config.get("show_edge_pores", False) else "Pores (All)"
     else:
-        selected_file = select_input_file(config, [dat_files, json_files, npz_files])
-        files_to_process = [selected_file]
+        label = domain_type.capitalize()  # "Particle"
 
-    for selected_file in files_to_process:
-        print(f"Processing file: {selected_file}")
-        process_file(selected_file, config)
+    # Create colormap
+    cmap = create_colormap(domain_data)
+    plot_voxelized_domain(
+		domain_data=domain_data,
+		voxel_centers=voxel_centers,
+		grid_size=grid_size,
+		voxel_size=voxel_size,
+		domain_size=domain_size,
+		config=config,
+		cmap=cmap,
+		label=label
+	)
+    
+def run(config):   
+    # Scrape folder and validate input
+    dat_files, json_files, npz_files = get_files(config["folder_path"])
+
+    selected_file = select_input_file(config, [dat_files, json_files, npz_files])
+    process_file(selected_file=selected_file, config=config)
+
+
+if __name__ == "__main__":
+    from workflows.voxelize_into_json import get_config
+    run(get_config())

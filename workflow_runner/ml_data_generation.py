@@ -5,9 +5,9 @@ from core.ml_data_generation_methods import save_slices_mask3D, voxel_grid_to_po
 from core.file_parsing_methods import parse_file
 from core.grid_optimization_methods import extract_surface_voxels, process_particles
 from core.voxelization_helper_methods import determine_axis, determine_num_slices, extract_slices, get_centered_grid, select_representative_slices
-from core.scraping_methods import get_files, validate_input
+from core.scraping_methods import get_files, select_input_file
 from core.summarize_methods import summarize_slices
-from core.visualization_methods import create_colormap, plot_particles, plot_slices_as_images, plot_pointcloud_with_slices, visualize_voxel_grid
+from core.visualization_methods import create_colormap, plot_particles, plot_slices_as_images, plot_pointcloud_with_slices, plot_voxelized_domain, visualize_voxel_grid
 
 def process_file(selected_file, metadata, config):
     # Select and parse file
@@ -72,19 +72,29 @@ def process_file(selected_file, metadata, config):
             cmap=cmap, 
             debug_mode=config.get("slices_debug_mode", False)
         )
-        plot_particles(
-            particles,
-            voxel_centers,
-            grid_size,
-            voxel_size,
-            domain_size,
-            surface_only=config.get("surface_only", False),
-            slices=selected_slices,
-            slice_coordinates=selected_slice_coordinates,
-            axis=axis,
-            plot_method="pv_polydata",
+        # plot_particles(
+        #     particles,
+        #     voxel_centers,
+        #     grid_size,
+        #     voxel_size,
+        #     domain_size,
+        #     surface_only=config.get("surface_only", False),
+        #     slices=selected_slices,
+        #     slice_coordinates=selected_slice_coordinates,
+        #     axis=axis,
+        #     plot_method="pv_polydata",
+        #     cmap=cmap,
+        #     show_legend=config.get("show_legend", False),
+        # )
+        plot_voxelized_domain(
+            domain_data=particles,
+            voxel_centers=voxel_centers,
+            grid_size=grid_size,
+            voxel_size=voxel_size,
+            domain_size=domain_size,
+            config=config,
             cmap=cmap,
-            show_legend=config.get("show_legend", False),
+            label="Particle"
         )
     
     else: 
@@ -158,13 +168,8 @@ def run(config):
         files_to_process = dat_files + json_files + npz_files
     else:
         # Validate input for single-file processing
-        validate_input(config, dat_files, json_files, npz_files)
-        files_to_process = [
-            dat_files[config["file_index"] - 1]
-            if config["file_type"] == "dat"
-            else npz_files[config["file_index"] - 1] if config["file_type"] == "npz"
-            else json_files[config["file_index"] - 1]
-        ]
+        selected_file = select_input_file(config, [dat_files, json_files, npz_files])
+        files_to_process = [selected_file]
     
     # Load metadata if restart is enabled
     metadata = load_metadata(config)

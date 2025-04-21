@@ -515,3 +515,33 @@ def check_particle_connectivity(particles, voxel_size, grid_shape):
     else:
         print("All particles are fully connected.")
 
+def convert_indices_to_ranges(indices):
+    indices = np.sort(np.unique(indices))
+    if len(indices) == 0:
+        return []
+
+    ranges = []
+    start = end = indices[0]
+
+    for i in indices[1:]:
+        if i == end + 1:
+            end = i
+        else:
+            ranges.append([start, end])
+            start = end = i
+
+    ranges.append([start, end])
+    return ranges
+
+def build_pore_data_dict(parsed_pores):
+    """
+    Constructs a dict with pore ID as key and voxel index ranges as values.
+    """
+    pore_data = {}
+    for pore in parsed_pores:
+        pore_id = pore["uniqueID"]  # or just use str(pore["num"]) if simpler
+        voxel_indices = np.ravel(pore["indices"])  # flatten in case it's (N, 1)
+        ranges = convert_indices_to_ranges(voxel_indices)
+        pore_data[pore_id] = ranges
+    return pore_data
+

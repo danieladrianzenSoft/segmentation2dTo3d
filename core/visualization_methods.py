@@ -59,6 +59,46 @@ def plot_spheres_plotly(centers, radii):
 
     fig.show()
 
+def plot_voxelized_domain(
+    domain_data,
+    voxel_centers,
+    grid_size,
+    voxel_size,
+    domain_size,
+    config,
+    cmap,
+    label="Particle",
+):
+    surface_only = config.get("surface_only", False)
+    slices = config.get("slices", None)
+    slice_coordinates = config.get("slice_coordinates", None)
+    axis = config.get("axis", 'z')
+    show_legend = config.get("show_legend", False)
+
+    if surface_only:
+        print(f"Using surface-only downsampling for {label.lower()}s...")
+        domain_data = extract_surface_voxels(domain_data, grid_size)
+
+    total_voxels = sum(len(v) for v in domain_data.values())
+    print(f"✅ Plotting {len(domain_data)} {label.lower()}s with {total_voxels} total voxels.")
+
+    # print(len(domain_data))
+    # cmap = create_colormap(domain_data, make_unique=False),
+    # print(len(cmap))
+
+    plot_with_pyvista_polydata(
+        domain_data=domain_data,
+        voxel_centers=voxel_centers,
+        voxel_size=voxel_size,
+        domain_size=domain_size,
+        grid_size=grid_size,
+        slices=slices,
+        slice_positions=slice_coordinates,
+        axis=axis,
+        cmap=cmap,
+        show_legend=show_legend
+    )
+
 def plot_particles(
         particles, 
         voxel_centers,
@@ -305,7 +345,7 @@ def plot_with_plotly_batch(particles, voxel_centers, voxel_size, domain_size, ba
     plot_duration = plot_end_time - plot_start_time
     print(f"Time taken for plotting: {plot_duration:.2f} seconds")
 
-def plot_with_pyvista_polydata(particles, voxel_centers, voxel_size, domain_size, grid_size, slices=None, slice_positions=None, axis='z', cmap=None, show_legend=False):
+def plot_with_pyvista_polydata(domain_data, voxel_centers, voxel_size, domain_size, grid_size, slices=None, slice_positions=None, axis='z', cmap=None, show_legend=False):
     if axis not in {'x', 'y', 'z'}:
         raise ValueError(f"Invalid axis '{axis}'. Must be one of 'x', 'y', or 'z'.")
     
@@ -317,24 +357,25 @@ def plot_with_pyvista_polydata(particles, voxel_centers, voxel_size, domain_size
     
     # Use provided or default colormap
     if cmap is None:
-        cmap = create_colormap(particles, make_unique=False)  # Default fluorescent green
+        cmap = create_colormap(domain_data, make_unique=False)  # Default fluorescent green
     
     all_coords = []
     all_colors = []
     
     # Ensure numerical sorting of particle labels
-    label_to_index = {str(label): idx + 1 for idx, label in enumerate(sorted(map(int, particles.keys())))}
+    # label_to_index = {str(label): idx + 1 for idx, label in enumerate(sorted(map(int, particles.keys())))}
+    label_to_index = {str(label): idx for idx, label in enumerate(sorted(domain_data.keys(), key=str))}
 
-    for i, (particle_label, voxel_indices) in enumerate(particles.items()):
+    for i, (entity_label, voxel_indices) in enumerate(domain_data.items()):
         coords = voxel_centers[voxel_indices]
         all_coords.append(coords)
 
         # Map particle_label to exact color in colormap
-        particle_index = label_to_index[particle_label]  # Use the label-to-index mapping
+        particle_index = label_to_index[str(entity_label)]  # Use the label-to-index mapping
         color = cmap.colors[particle_index]  # Fetch color directly from colormap
         repeated_colors = np.tile(color, (len(coords), 1))  # Shape: (len(coords), 3)
         all_colors.append(repeated_colors)
-        
+
         # Map particle_label to color via cmap
         # particle_index = int(particle_label)  # Ensure particle_label is treated as an index
         # color = cmap(particle_index) if particle_index < len(cmap.colors) else (0, 0, 0)  # Default to black if out of bounds
@@ -391,8 +432,8 @@ def plot_with_pyvista_polydata(particles, voxel_centers, voxel_size, domain_size
     
     if show_legend:
         legend_entries = [
-            (f"Particle {particle_label}", cmap.colors[label_to_index[particle_label]])
-            for particle_label in particles.keys()
+            (f"{entity_label}", cmap.colors[label_to_index[entity_label]])
+            for entity_label in entity_label.keys()
         ]
         plotter.add_legend(legend_entries, bcolor='white', size=(0.2, 0.2))
     

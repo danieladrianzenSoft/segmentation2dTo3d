@@ -12,43 +12,113 @@ def list_files_by_extension(folder_path, extensions):
     Returns:
         list: A list of file paths with the specified extensions.
     """
-    return [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith(tuple(extensions))]
+    result = {ext: [] for ext in extensions}
+    for f in os.listdir(folder_path):
+        for ext in extensions:
+            if f.endswith(ext):
+                result[ext].append(os.path.join(folder_path, f))
+    return result
 
-def get_files(folder_path):
+def get_files(folder_path, extensions=None):
+    """
+    Search for files by extension in a given folder.
 
-    print(f"Searching for .dat, .json and .npz files in: {folder_path}")
+    Parameters:
+        folder_path (str): Folder to search.
+        extensions (list, optional): Extensions to search for. Default is ['.dat', '.json', '.npz'].
 
-    all_files = list_files_by_extension(folder_path, [".dat", ".json", ".npz"])
-    dat_files = [f for f in all_files if f.endswith(".dat")]
-    json_files = [f for f in all_files if f.endswith(".json")]
-    npz_files = [f for f in all_files if f.endswith(".npz")]
+    Returns:
+        tuple: A tuple of lists of file paths, in the same order as the extensions input.
+    """
 
+    if extensions is None:
+        extensions = [".dat", ".json", ".npz"]
 
-    print(f"Found {len(dat_files)} .dat file(s).")
-    print(f"Found {len(json_files)} .json file(s).")
-    print(f"Found {len(npz_files)} .npz file(s).")
+    print(f"Searching for files with extensions {extensions} in: {folder_path}")
 
-    print(f"Total files found: {len(all_files)}")
-    if not all_files:
+    all_files = list_files_by_extension(folder_path, extensions)
+
+    results = []
+    total = 0
+    for ext in extensions:
+        files = all_files.get(ext, [])
+        print(f"Found {len(files)} {ext} file(s).")
+        results.append(files)
+        total += len(files)
+
+    print(f"Total files found: {total}")
+    if total == 0:
         print("No files found in the specified folder.")
         sys.exit(1)
-    return dat_files, json_files, npz_files
 
+    return tuple(results)
 
-def validate_input(config, dat_files, json_files, npz_files):
-    file_type = config["file_type"]
-    file_index = config["file_index"]
+def select_input_file(config, file_lists, extensions=None):
+    """
+    Select and validate the file to process.
 
-    if file_type not in ["dat", "json", "npz"]:
-        print("Invalid file type. Please choose 'dat', 'json' or 'npz'.")
+    If 'filename' is provided in config, it will be used directly (after validation).
+    Otherwise, selection is based on 'file_type' and 'file_index'.
+
+    Parameters:
+        config (dict): Must include 'file_type' and either 'file_index' or 'filename'.
+        file_lists (list of lists): Output of get_files(...), converted to a list.
+        extensions (list of str, optional): Corresponding extensions list (default = ['.dat', '.json', '.npz']).
+
+    Returns:
+        str: Path to the selected file.
+    """
+    # If extensions not provided, assume default
+    if extensions is None:
+        extensions = ['.dat', '.json', '.npz']
+
+    # Use filename override if provided
+    filename = config.get("filename")
+    if filename and isinstance(filename, str):
+        # If filename is not an absolute path, prepend input_dir
+        if not os.path.isabs(filename):
+            input_dir = config.get("input_dir", ".")
+            filename = os.path.join(input_dir, filename)
+
+        if not os.path.isfile(filename):
+            print(f"Provided filename does not exist: {filename}")
+            sys.exit(1)
+
+        print(f"Using provided filename: {filename}")
+        return filename
+
+    # FALLBACK to file_type + index
+    
+    # Infer file_type if only one extension is available
+    file_type = config.get("file_type")
+    if not file_type:
+        if len(extensions) == 1:
+            file_type = extensions[0].lstrip('.')
+            print(f"Inferred file_type = '{file_type}' from extensions")
+        else:
+            print("'file_type' must be specified when using multiple extensions.")
+            sys.exit(1)
+
+    file_index = config.get("file_index")
+    if not isinstance(file_index, int):
+        print("'file_index' must be an integer when using file_type selection.")
         sys.exit(1)
 
-    file_count = (
-        len(dat_files) if file_type == "dat" 
-        else len(npz_files) if file_type == "npz" 
-        else len(json_files)
-    )
+    ext = '.' + file_type
 
-    if not (1 <= file_index <= file_count):
-        print(f"Invalid file index for {file_type} files. Choose a number between 1 and {file_count}.")
+    # Default extension order
+    if extensions is None:
+        extensions = ['.dat', '.json', '.npz']
+
+    if ext not in extensions:
+        print(f"Extension '{ext}' not in provided extensions list.")
         sys.exit(1)
+
+    idx = extensions.index(ext)
+    file_list = file_lists[idx]
+
+    if not (1 <= file_index <= len(file_list)):
+        print(f"Invalid file index for {file_type}. Choose between 1 and {len(file_list)}.")
+        sys.exit(1)
+
+    return file_list[file_index - 1]
