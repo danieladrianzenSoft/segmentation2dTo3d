@@ -9,14 +9,13 @@ def process_file(config, file):
     result = parse_file(config, file)
     if result is None: return
     pores, pores_metadata, voxel_size, domain_size = result
-    print(voxel_size)
-    print(domain_size)
-    for i, (pore_id, voxel_ranges) in enumerate(pores.items()):
-        print(f"Pore ID: {pore_id}")
-        print("Voxel ranges:", voxel_ranges[:5])  # First 5 ranges
-        print()
-        if i >= 1:  # stop after 2 items (i = 0 and 1)
-            break
+
+    # for i, (pore_id, voxel_ranges) in enumerate(pores.items()):
+    #     print(f"Pore ID: {pore_id}")
+    #     print("Voxel ranges:", voxel_ranges[:5])  # First 5 ranges
+    #     print()
+    #     if i >= 1:  # stop after 2 items (i = 0 and 1)
+    #         break
     data = {
         "voxel_size": voxel_size,
         "domain_size": domain_size,
@@ -59,7 +58,18 @@ def save_pore_data(data, config, filename="pore_domain"):
 
 def run(config):
     # Scrape folder and validate input
-    mat_files = get_files(config["input_dir"], extensions=[".mat"])
+    mat_files, = get_files(config["input_dir"], extensions=[".mat"])
 
-    selected_file = select_input_file(config, mat_files, [".mat"])
-    process_file(config=config, file=selected_file)
+    if config.get("batch_process", False):
+        # Combine all .dat and .json files for batch processing
+        files_to_process = mat_files
+    else:
+        # Validate input for single-file processing
+        selected_file = select_input_file(config, mat_files)
+        files_to_process = [selected_file]
+    
+    # Process each file
+    for selected_file in files_to_process:
+        print(f"Processing file: {selected_file}")
+        process_file(config=config, file=selected_file)
+

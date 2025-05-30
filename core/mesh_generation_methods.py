@@ -7,6 +7,7 @@ from scipy.spatial import Delaunay
 from scipy.interpolate import griddata
 from sklearn.metrics import pairwise_distances
 from skimage import color
+import json
 
 import time
 import numpy as np
@@ -14,13 +15,15 @@ import open3d as o3d
 from skimage.measure import marching_cubes
 from scipy.ndimage import gaussian_filter
 import subprocess
+from trimesh.visual import ColorVisuals
+import trimesh.transformations as tf
 
-def generate_mesh_marching_cubes(particles, voxel_centers, voxel_size, output_path, include_color=True, target_faces=10000):
+def generate_mesh_marching_cubes(domain_entities, domain_entity_metadata, voxel_centers, voxel_size, output_path, config, include_color=True, target_faces=10000):
     """
     Generate a .glb mesh using Marching Cubes from skimage, ensuring each particle is independent and has unique colors.
 
     Parameters:
-        particles (dict): Dictionary mapping particle labels to their voxel indices.
+        domain_data (dict): Dictionary mapping particle labels to their voxel indices.
         voxel_centers (numpy.ndarray): (N, 3) array of all voxel centers.
         voxel_size (float): Size of each voxel.
         grid_size (tuple): (nx, ny, nz) grid dimensions.
@@ -30,20 +33,22 @@ def generate_mesh_marching_cubes(particles, voxel_centers, voxel_size, output_pa
         str: Path to the saved .glb file.
     """
     scene = trimesh.Scene()
-    num_particles = len(particles)
+    num_domain_entities = len(domain_entities)
 
     # Generate predefined colors
-    # predefined_colors = np.random.rand(num_particles, 3)  # RGB only (no alpha)
-    predefined_colors = distinguishable_colors(num_particles, 'w')
+    # predefined_colors = np.random.rand(num_domain_entities, 3)  # RGB only (no alpha)
+    predefined_colors = distinguishable_colors(num_domain_entities, 'w')
 
-    for i, (particle_label, voxel_indices) in enumerate(particles.items()):
+
+    for i, (domain_entity_label, voxel_indices) in enumerate(domain_entities.items()):
         if len(voxel_indices) < 10:  # Need at least some voxels for meshing
-            print(f"⚠️ Skipping particle {particle_label}: Too few points for meshing.")
+            print(f"⚠️ Skipping domain_entity {domain_entity_label}: Too few points for meshing.")
             continue
 
         try:
             # Get actual 3D coordinates of voxel centers
-            coords = voxel_centers[voxel_indices]  # Shape (M, 3)
+            # coords = voxel_centers[voxel_indices]  # Shape (M, 3)
+            coords = voxel_centers[voxel_indices][:, [0, 2, 1]] # Switching y and z axes
 
             # Compute the grid's min/max bounds
             x_min, y_min, z_min = coords.min(axis=0)
@@ -65,7 +70,7 @@ def generate_mesh_marching_cubes(particles, voxel_centers, voxel_size, output_pa
             # Fill the grid
             voxel_grid[grid_x, grid_y, grid_z] = 1  # Mark occupied voxels
 
-            # 🔥 **Apply Gaussian Smoothing to Reduce Jagged Edges**
+            # Apply Gaussian Smoothing to Reduce Jagged Edges
             smoothed_voxel_grid = gaussian_filter(voxel_grid.astype(float), sigma=1.2)
 
             # Apply Marching Cubes
@@ -78,69 +83,91 @@ def generate_mesh_marching_cubes(particles, voxel_centers, voxel_size, output_pa
             verts, faces = simplify_mesh(verts, faces, target_faces=target_faces)
 
             # Convert to Trimesh
-            particle_mesh = trimesh.Trimesh(vertices=verts, faces=faces, vertex_normals=normals)
+            domain_entity_mesh = trimesh.Trimesh(vertices=verts, faces=faces, vertex_normals=normals)
 
             # Decimate using o3d 
-            # particle_mesh = simplify(particle_mesh, target_faces=target_faces)
+            # domain_entity_mesh = simplify(domain_entity_mesh, target_faces=target_faces)
 
             # Ensure normals are outward-facing
-            particle_mesh.fix_normals()
+            domain_entity_mesh.fix_normals()
 
             if include_color == True:
                 # Assign per-vertex color
                 color = predefined_colors[i]
                 vertex_colors = np.hstack([np.tile(color, (len(verts), 1)), np.ones((len(verts), 1))])  # RGBA
                 # vertex_colors = np.tile(color, (len(verts), 1))
-                particle_mesh.visual.vertex_colors = vertex_colors  # Apply colors
+                # domain_entity_mesh.visual.vertex_colors = vertex_colors  # Apply colors
+                domain_entity_mesh.visual = ColorVisuals(mesh=domain_entity_mesh, vertex_colors=vertex_colors)
 
-            # particle_mesh.vertices = np.array(particle_mesh.vertices, dtype=np.float16)  # Convert to 16-bit
-            # particle_mesh.vertex_normals = np.array(particle_mesh.vertex_normals, dtype=np.float16)  # Convert normals
+            # domain_entity_mesh.vertices = np.array(domain_entity_mesh.vertices, dtype=np.float16)  # Convert to 16-bit
+            # domain_entity_mesh.vertex_normals = np.array(domain_entity_mesh.vertex_normals, dtype=np.float16)  # Convert normals
 
             # Store metadata
-            particle_mesh.metadata["particle_id"] = particle_label
-            # particle_mesh.metadata["num_voxels"] = len(voxel_indices)
+            domain_entity_mesh.metadata["domain_entity_id"] = domain_entity_label
+            # domain_entity_mesh.metadata["num_voxels"] = len(voxel_indices)
 
             # Add mesh to scene **as a separate object**
-            scene.add_geometry(particle_mesh, node_name=f"{particle_label}")
+            scene.add_geometry(domain_entity_mesh, node_name=f"{domain_entity_label}")
 
         except Exception as e:
-            print(f"⚠️ Warning: Skipping particle {particle_label} due to meshing error: {e}")
+            print(f"⚠️ Warning: Skipping domain_entity {domain_entity_label} due to meshing error: {e}")
             continue
 
     if not scene.geometry:
-        raise ValueError("No valid particle meshes were generated.")
+        raise ValueError("No valid domain_entity meshes were generated.")
 
     # Ensure output directory exists
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-    # Export scene as .glb
-    # scene.export(output_path)
-    # z = trimesh.util.compress(e)
-
-    scene.export(output_path, file_type="glb")
-
-    print(f"🎉 GLB file saved: {output_path}")
-
-    # compressed_output_path = output_path.replace(".glb", "_compressed.glb")
-    compressed_output_path = output_path
-
-    compress_glb(output_path, compressed_output_path)
-
-    # # **Generate a properly named Draco-compressed file path**
-    # output_dir = os.path.dirname(output_path)  # Extract directory
-    # output_filename = "draco_" + os.path.basename(output_path)  # Add prefix to filename
-    # output_path_compressed = os.path.join(output_dir, output_filename)  # Full path
-
-    # # **Apply Draco compression**
-    # apply_draco_compression(output_path, output_path_compressed)
-
-    # print(f"🎉 Draco-compressed GLB file saved: {output_path_compressed}")
+    if (config.get("save_mesh", True)):
+        scene.export(output_path, file_type="glb")
+        print(f"🎉 GLB file saved: {output_path}")
+        # compressed_output_path = output_path.replace(".glb", "_compressed.glb")
+        compressed_output_path = output_path
+        compress_glb(output_path, compressed_output_path)
+    
+    if (config.get("save_metadata", True)):
+        save_metadata(scene, domain_entity_metadata, output_path=output_path)
 
     return output_path
 
-def distinguishable_colors(n_colors, bg='w', func=None, n_grid=40, L_min=15, L_max=85):
+def save_metadata(scene, domain_entity_metadata, output_path):
+    # Build domain_entity ID list and ID → index mapping
+    ids = []
+    id_to_index = {}
+    entity_metadata = {}  # New
+
+    # Loop through the scene nodes
+    for i, node_name in enumerate(scene.graph.nodes_geometry):
+        id = node_name  # Node names are set to domain_entity label (as string)
+        id_str = str(id)  # JSON keys must be strings
+        ids.append(id_str)
+        id_to_index[id_str] = i
+        
+        # If metadata for this ID exists (only pores will have extra metadata)
+        if domain_entity_metadata and id in domain_entity_metadata:
+            entity_metadata[id_str] = domain_entity_metadata[id]
+        else:
+            entity_metadata[id_str] = {}  # Empty metadata for particles
+
+    # Final metadata structure
+    metadata = {
+        "ids": ids,
+        "id_to_index": id_to_index,
+        "metadata": entity_metadata
+    }
+
+    # Optionally: write to .json file alongside .glb
+    metadata_path = output_path.replace(".glb", "_metadata.json")
+    with open(metadata_path, "w") as f:
+        json.dump(metadata, f, separators=(",", ":"))
+
+    print(f"📄 Metadata saved: {metadata_path}")
+
+def distinguishable_colors(n_colors, bg='w', func=None, n_grid=40, L_min=15, L_max=85, gray_tol=0.05):
     """
-    Generate `n_colors` perceptually distinct colors that are not too light or too dark.
+    Generate `n_colors` perceptually distinct colors that are not too light or too dark,
+    or too gray.
 
     Parameters:
     - n_colors: The number of distinct colors to generate.
@@ -149,6 +176,7 @@ def distinguishable_colors(n_colors, bg='w', func=None, n_grid=40, L_min=15, L_m
     - n_grid: Grid size for the color space. Increasing it gives more options.
     - L_min: Minimum lightness threshold to avoid too dark colors (default 20).
     - L_max: Maximum lightness threshold to avoid too light colors (default 80).
+    - gray_tol: Threshold below which RGB values are considered too similar (i.e. gray).
 
     Returns:
     - A numpy array of size (n_colors, 3) representing RGB colors in the range [0, 1].
@@ -183,9 +211,12 @@ def distinguishable_colors(n_colors, bg='w', func=None, n_grid=40, L_min=15, L_m
     
     # Filter out colors that are too light or too dark based on the L value
     L = lab[:, 0]  # L value represents lightness
-    mask = (L > L_min) & (L < L_max)
-    lab_filtered = lab[mask]
-    rgb_filtered = rgb_normalized[mask]
+    lightness_mask = (L > L_min) & (L < L_max)
+    gray_mask = np.array([is_not_gray(c) for c in rgb])
+    
+    combined_mask = lightness_mask & gray_mask
+    lab_filtered = lab[combined_mask]
+    rgb_filtered = rgb_normalized[combined_mask]
     
     if rgb_filtered.shape[0] < n_colors:
         raise ValueError(f"Not enough distinct colors available within the specified lightness range (L: {L_min}-{L_max}).")
@@ -214,6 +245,10 @@ def distinguishable_colors(n_colors, bg='w', func=None, n_grid=40, L_min=15, L_m
     selected_colors_rgb_float = np.array(selected_colors).clip(0, 1)  # Ensure the values are within the [0, 1] range
 
     return selected_colors_rgb_float  # Return in [0, 1] range if needed for further processing
+
+def is_not_gray(rgb, tol=0.05):
+    r, g, b = rgb
+    return not (abs(r - g) < tol and abs(r - b) < tol and abs(g - b) < tol)
 
 def simplify_mesh(vertices, faces, target_faces=10000):
     """

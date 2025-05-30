@@ -46,16 +46,24 @@ def process_file(selected_file, config):
 	# Generate .glb file
     output_dir = config.get("output_dir")
     output_path = os.path.join(output_dir, f"{os.path.basename(selected_file).split('.')[0]}.glb")
-    # generate_glb_file_convex_hull(surface_particles, voxel_centers, voxel_size, output_path)
-    # generate_glb_file_poisson(surface_particles, voxel_centers, voxel_size, output_path, method="bpa")
-    # generate_glb_file_delauney(
-    #     surface_particles, 
-    #     voxel_centers, 
-    #     voxel_size, 
-    #     output_path, 
-    # )
-    # generate_glb_file_from_surface(surface_particles, voxel_centers, voxel_size, output_path)
-    generate_mesh_marching_cubes(domain_data, voxel_centers, voxel_size, output_path)
+   
+    generate_mesh_marching_cubes(domain_data, filter_metadata(domain_metadata), voxel_centers, voxel_size, output_path, config=config)
+
+def filter_metadata(metadata_dict):
+        if metadata_dict is None:
+            return {}
+        filtered = {}
+        for key, original_metadata in metadata_dict.items():
+            filtered[key] = {
+                "volume": original_metadata.get("volume"),
+                "surfArea": original_metadata.get("surfArea"),
+                "charLength": original_metadata.get("charLength"),
+                "edge": original_metadata.get("edge"),
+                "avgDoorDiam": original_metadata.get("avgDoorDiam"),
+                "largestDoorDiam": original_metadata.get("largestDoorDiam"),
+                "beadNeighbors": original_metadata.get("beadNeighbors"),
+            }
+        return filtered
 
 def run(config):
     dat_files, json_files, npz_files = get_files(config["input_dir"])
@@ -69,3 +77,7 @@ def run(config):
     for selected_file in files_to_process:
         print(f"Processing file: {selected_file}")
         process_file(selected_file, config)
+
+if __name__ == "__main__":
+    from workflows.mesh_generation import get_config
+    run(get_config())
