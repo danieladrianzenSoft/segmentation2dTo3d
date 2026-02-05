@@ -1,0 +1,10 @@
+version: '3.8'
+services:
+  mesh-cli:
+    build: .
+    image: segmentation-workflows:latest
+    # Example run: combine files from a mounted host directory into an output file
+    # volumes:
+    #   - ./data:/data
+    # command: ["unite", "--input-dir", "/data/pores", "--output", "/data/out/combined.glb", "--start-index", "0", "--end-index", "10"]
+    # Use this in your .NET host to run in an ephemeral container and read results from the shared volume.

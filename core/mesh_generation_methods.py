@@ -246,6 +246,86 @@ def distinguishable_colors(n_colors, bg='w', func=None, n_grid=40, L_min=15, L_m
 
     return selected_colors_rgb_float  # Return in [0, 1] range if needed for further processing
 
+
+def color_scene_unique(scene: trimesh.Scene, colors=None, alpha: float = 1.0, verbose: bool = True) -> trimesh.Scene:
+    """Assign unique colors to each geometry in a trimesh.Scene.
+
+    Args:
+        scene: trimesh.Scene containing geometry items (Trimesh objects).
+        colors: Optional iterable of RGB colors in [0,1] shape (n_items, 3). If None will generate distinguishable colors.
+        alpha: Alpha value in [0,1] to apply to all vertices.
+        verbose: Print progress messages.
+
+    Returns:
+        The same scene with colored geometries (colors applied per-vertex as RGBA).
+    """
+    n = len(scene.geometry)
+    if n == 0:
+        return scene
+
+    if colors is None:
+        colors = distinguishable_colors(n, 'w')
+
+    colors = list(colors)
+    # Ensure we have at least n colors
+    if len(colors) < n:
+        # Repeat colors if needed
+        times = int(np.ceil(n / len(colors)))
+        colors = (colors * times)[:n]
+
+    # Apply colors in scene order
+    for idx, (name, geom) in enumerate(list(scene.geometry.items())):
+        try:
+            c = np.array(colors[idx])
+            # per-vertex RGBA
+            vertex_colors = np.hstack([np.tile(c, (len(geom.vertices), 1)), np.ones((len(geom.vertices), 1)) * float(alpha)])
+            geom.visual = ColorVisuals(mesh=geom, vertex_colors=vertex_colors)
+            if verbose:
+                print(f"🎨 Applied color to {name}: {c.tolist()} (alpha={alpha})")
+        except Exception as e:
+            if verbose:
+                print(f"⚠️ Failed to color {name}: {e}")
+            continue
+
+    return scene
+
+
+def apply_material_color(mesh: trimesh.Trimesh, color, alpha: float = 1.0, verbose: bool = False) -> trimesh.Trimesh:
+    """(Deprecated fast path) Apply a material-based color to a single Trimesh.
+
+    NOTE: Trimesh GLB exporter may not serialize SimpleMaterial consistently across
+    environments. Prefer `apply_vertex_color` for reliable export.
+    """
+    try:
+        rgb = list(color)[:3]
+        material = trimesh.visual.material.SimpleMaterial(diffuse=rgb)
+        mesh.visual = trimesh.visual.TextureVisuals(material=material)
+        if verbose:
+            print(f"🎨 Applied material color {rgb} to mesh")
+    except Exception as e:
+        if verbose:
+            print(f"⚠️ Failed to apply material color: {e}")
+    return mesh
+
+
+def apply_vertex_color(mesh: trimesh.Trimesh, color, alpha: float = 1.0, verbose: bool = False) -> trimesh.Trimesh:
+    """Apply a per-vertex uniform color to a single mesh (reliable export).
+
+    This is the recommended "fast" path: we color each mesh before combining
+    so we avoid coloring the whole Scene in a second pass.
+    """
+    try:
+        c = np.array(list(color)[:3])
+        vertex_colors = np.hstack([np.tile(c, (len(mesh.vertices), 1)), np.ones((len(mesh.vertices), 1)) * float(alpha)])
+        mesh.visual = ColorVisuals(mesh=mesh, vertex_colors=vertex_colors)
+        if verbose:
+            print(f"🎨 Applied vertex color to mesh (n_pts={len(mesh.vertices)}) color={c.tolist()}")
+    except Exception as e:
+        if verbose:
+            print(f"⚠️ Failed to apply vertex color: {e}")
+    return mesh
+
+
 def is_not_gray(rgb, tol=0.05):
     r, g, b = rgb
     return not (abs(r - g) < tol and abs(r - b) < tol and abs(g - b) < tol)

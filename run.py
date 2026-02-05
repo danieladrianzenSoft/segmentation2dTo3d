@@ -5,6 +5,9 @@ from pathlib import Path
 from importlib import import_module
 import importlib.util
 import traceback
+import json
+
+from workflow_registry import PUBLIC_WORKFLOWS
 
 # Ensure project root is in the Python path
 sys.path.insert(0, str(Path(__file__).resolve().parent.resolve()))
@@ -51,10 +54,20 @@ def main():
         if f.name != "__init__.py" and not f.name.startswith("_")
     ])
 
+    # Public mode: only expose workflows in the allowlist
+    public_mode = os.getenv("SEG_WORKFLOW_MODE", "").lower() == "public"
+
     # Initial parser just to handle --list early
     pre_parser = argparse.ArgumentParser(add_help=False)
     pre_parser.add_argument("--list", action="store_true", help="List all available workflows and exit")
+    pre_parser.add_argument("--public", action="store_true", help="Restrict to public workflows only")
     args, remaining_argv = pre_parser.parse_known_args()
+
+    if args.public:
+        public_mode = True
+
+    if public_mode:
+        available_workflows = [wf for wf in available_workflows if wf in PUBLIC_WORKFLOWS]
 
     # Handle --list before any required args
     if args.list:
@@ -72,6 +85,11 @@ def main():
     parser.add_argument(
         "--set", nargs="*", metavar="key=value",
         help="Override config values dynamically (e.g. --set input_path=foo.png threshold=2)"
+    )
+
+    parser.add_argument(
+        "--config", type=str, default=None,
+        help="Path to workflow config file (JSON; YAML if PyYAML is installed)"
     )
 
     parser.add_argument(
@@ -95,7 +113,24 @@ def main():
 
     try:
         workflow_module = import_module(f"workflows.{workflow_name}")
-        config = workflow_module.get_config()
+
+        if args.config:
+            config_path = Path(args.config)
+            if not config_path.exists():
+                raise FileNotFoundError(f"Config file not found: {config_path}")
+            if config_path.suffix.lower() in (".yaml", ".yml"):
+                try:
+                    import yaml  # type: ignore
+                except Exception as e:
+                    raise RuntimeError("YAML config requires PyYAML (pip install pyyaml)") from e
+                with config_path.open("r", encoding="utf-8") as f:
+                    config = yaml.safe_load(f) or {}
+            else:
+                with config_path.open("r", encoding="utf-8") as f:
+                    config = json.load(f)
+        else:
+            config = workflow_module.get_config()
+
         if args.set:
             for item in args.set:
                 if "=" not in item:

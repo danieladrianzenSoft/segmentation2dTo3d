@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  segmentation-workflows:
+    image: ghcr.io/seguralab/segmentation-workflows:latest
+    entrypoint: ["python", "/app/run.py", "--public"]
+    command: ["--workflow", "unite_meshes", "--config", "/app/configs/unite_meshes.json"]
+    volumes:
+      - ./data:/data:rw
+    restart: 'no'
+
+  # Example of a helper service (e.g. object storage) you might run alongside
+  # minio:
+  #   image: minio/minio:latest
+  #   environment:
+  #     MINIO_ROOT_USER: minio
+  #     MINIO_ROOT_PASSWORD: minio123
+  #   command: server /data
+  #   ports:
+  #     - "9000:9000"
+  #   volumes:
+  #     - minio-data:/data
+
+# volumes:
+  # minio-data:
+  #   driver: local
