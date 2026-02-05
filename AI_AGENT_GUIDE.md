@@ -1,4 +1,4 @@
-# AI Agent & Contributor Guide 🤖💡
+# AI Agent & Contributor Guide
 
 ## Purpose
 This document helps human contributors and AI agents understand the repository structure and conventions so they can:
