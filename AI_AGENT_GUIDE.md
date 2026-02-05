@@ -146,5 +146,3 @@ def test_process_data():
 - Expand `AI_AGENT_GUIDE.md` with example datasets and a step-by-step tutorial.
 
 ---
-
-Thanks — If you'd like, I can create the workflow/core/test templates now and add a basic GitHub Action to run tests. Would you like me to proceed? 🚀
