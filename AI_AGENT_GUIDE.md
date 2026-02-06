@@ -2,9 +2,9 @@
 
 ## Purpose
 This document helps human contributors and AI agents understand the repository structure and conventions so they can:
-- Add new workflows that plug into the existing `run.py` machinery ✅
-- Reuse and extend the `core/` library with new, well-documented methods ✅
-- Write consistent, testable code that integrates with the overall architecture ✅
+- Add new workflows that plug into the existing `run.py` machinery
+- Reuse and extend the `core/` library with new, well-documented methods
+- Write consistent, testable code that integrates with the overall architecture
 
 ---
 

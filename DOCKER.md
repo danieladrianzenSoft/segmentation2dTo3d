@@ -35,7 +35,7 @@ Advanced
 - You can publish this image to a registry and pull it from any host.
 - For long-run or heavy usage, orchestrate via k8s Jobs (recommended).
 
-Publish to GitHub Container Registry (GHCR) ✅
+Publish to GitHub Container Registry (GHCR) 
 - Example GitHub Actions workflow to build & publish is included in `.github/workflows/docker-image.yml`.
 - Alternatively, build and push locally:
 
