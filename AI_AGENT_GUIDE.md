@@ -18,7 +18,7 @@ This document helps human contributors and AI agents understand the repository s
 
 ---
 
-## Key conventions ⚙️
+## Key conventions
 - Workflow modules must implement:
   - `def get_config() -> dict:` returning typed default values (strings, ints/floats, booleans, lists).
   - Prefer descriptive keys (e.g., `metadata_path`, `slices_dir`, `output_dir`, `process_scaffold`).
