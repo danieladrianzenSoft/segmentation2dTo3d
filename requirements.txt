@@ -32,6 +32,7 @@ six==1.17.0
 tenacity==9.0.0
 traits==6.4.3
 traitsui==8.0.0
+trimesh==4.1.8
 typing_extensions==4.12.2
 tzdata==2025.1
 urllib3==2.3.0
