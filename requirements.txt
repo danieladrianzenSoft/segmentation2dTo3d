@@ -41,3 +41,4 @@ wheel==0.45.1
 pygltflib==1.16.5
 scikit-learn==1.7.2
 scikit-image==0.25.2
+open3d==0.19
