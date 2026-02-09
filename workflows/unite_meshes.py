@@ -4,7 +4,7 @@ def get_config():
         "output_dir": "data/PoreMeshes",
         "output_name": "combined_pores.glb",
         "pattern": "*.glb",
-        "compress": False,
+        "compress": True,
         "compression_level": 10,
         "max_files": None,
         "start_index": None,

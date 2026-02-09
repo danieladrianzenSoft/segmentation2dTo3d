@@ -107,19 +107,21 @@ def unite_glb_files(
     added = 0
 
     # Prepare colors for per-mesh coloring if requested
-    # Prepare colors for per-mesh coloring if requested using a very fast HSV sampler (avoids expensive distinguishable_colors for large n)
+    # Use distinguishable_colors by default; fall back to HSV if it fails (e.g., very large n or constraints too tight).
     file_colors = None
     if color and color_method in ("material", "per_mesh"):
         try:
-            n = len(files)
-            # Fast HSV-based color generation — very cheap and incremental
-            def generate_colors(n):
-                hues = np.linspace(0, 1, n, endpoint=False)
-                cols = [colorsys.hsv_to_rgb(float(h), 0.65, 0.95) for h in hues]
-                return cols
-            file_colors = generate_colors(len(files))
+            file_colors = distinguishable_colors(len(files), 'w')
         except Exception:
-            file_colors = [(0.8, 0.8, 0.8)] * len(files)
+            try:
+                # Fast HSV-based color generation — very cheap and incremental
+                def generate_colors(n):
+                    hues = np.linspace(0, 1, n, endpoint=False)
+                    cols = [colorsys.hsv_to_rgb(float(h), 0.65, 0.95) for h in hues]
+                    return cols
+                file_colors = generate_colors(len(files))
+            except Exception:
+                file_colors = [(0.8, 0.8, 0.8)] * len(files)
 
     total = len(files)
     # Always show a progress bar (tqdm if available, else a simple in-place counter)
@@ -174,7 +176,7 @@ def unite_glb_files(
             continue
 
     # If we used the manual progress fallback, ensure we end with a newline
-    if use_manual_progress and progress:
+    if use_manual_progress and total > 0:
         print()
 
     if len(scene.geometry) == 0:

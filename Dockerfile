@@ -20,7 +20,7 @@ RUN apt-get update \
 RUN if [ "${INSTALL_GLTF}" = "true" ]; then \
       curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
       apt-get update && apt-get install -y --no-install-recommends nodejs && \
-      npm install -g gltf-pipeline || true && \
+      npm install -g gltf-pipeline && \
       rm -rf /var/lib/apt/lists/* ; \
     fi
 

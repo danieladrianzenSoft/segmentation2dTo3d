@@ -212,7 +212,12 @@ def distinguishable_colors(n_colors, bg='w', func=None, n_grid=40, L_min=15, L_m
     # Filter out colors that are too light or too dark based on the L value
     L = lab[:, 0]  # L value represents lightness
     lightness_mask = (L > L_min) & (L < L_max)
-    gray_mask = np.array([is_not_gray(c) for c in rgb])
+    # Vectorized gray rejection for speed
+    gray_mask = (
+        (np.abs(rgb[:, 0] - rgb[:, 1]) >= gray_tol) |
+        (np.abs(rgb[:, 0] - rgb[:, 2]) >= gray_tol) |
+        (np.abs(rgb[:, 1] - rgb[:, 2]) >= gray_tol)
+    )
     
     combined_mask = lightness_mask & gray_mask
     lab_filtered = lab[combined_mask]
@@ -221,25 +226,19 @@ def distinguishable_colors(n_colors, bg='w', func=None, n_grid=40, L_min=15, L_m
     if rgb_filtered.shape[0] < n_colors:
         raise ValueError(f"Not enough distinct colors available within the specified lightness range (L: {L_min}-{L_max}).")
     
-    # Initialize color set
+    # Greedy selection of the most distinct colors from the grid.
+    # Maintain a running minimum distance to any selected color to avoid
+    # recomputing full pairwise distances each iteration.
     selected_colors = []
+    min_dist = pairwise_distances(lab_filtered, bg_lab).reshape(-1)
 
-    # Greedy selection of the most distinct colors from the grid
     for _ in range(n_colors):
-        # Calculate pairwise distances from all colors in the lab space
-        if selected_colors:
-            selected_lab = color.rgb2lab(np.array(selected_colors))  # Normalize to [0, 1]
-            distances = pairwise_distances(lab_filtered, selected_lab)  # distance from previously chosen colors
-        else:
-            # First iteration: distance from background
-            distances = pairwise_distances(lab_filtered, bg_lab)
-
-        # Find the farthest color
-        min_dist = distances.min(axis=1)
-        farthest_color_index = np.argmax(min_dist)
-        
-        # Add the farthest color to the selected set
+        farthest_color_index = int(np.argmax(min_dist))
         selected_colors.append(rgb_filtered[farthest_color_index])
+
+        # Update min_dist with distances to the newly selected color
+        new_dist = pairwise_distances(lab_filtered, lab_filtered[farthest_color_index:farthest_color_index + 1]).reshape(-1)
+        min_dist = np.minimum(min_dist, new_dist)
 
     # Convert to [0, 1] range (if your system expects it) or [0, 255] as needed
     selected_colors_rgb_float = np.array(selected_colors).clip(0, 1)  # Ensure the values are within the [0, 1] range
