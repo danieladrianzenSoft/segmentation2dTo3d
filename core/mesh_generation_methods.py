@@ -394,15 +394,21 @@ def simplify(mesh, target_faces=8000):
         return mesh  # Return original mesh if simplification fails
 
 def compress_glb(input_glb, output_glb, compression_level=10):
-    """Compress .glb file using Draco with gltf-pipeline (Node.js)."""
+    """Compress .glb file using Draco with gltf-pipeline (Node.js).
+
+    Returns:
+        bool: True on success, False on failure.
+    """
     try:
         subprocess.run(
             ["gltf-pipeline", "-i", input_glb, "-o", output_glb, "--draco.compressMeshes", f"--draco.compressionLevel={compression_level}"],
             check=True
         )
         print(f"✅ Compressed GLB saved: {output_glb}")
+        return True
     except subprocess.CalledProcessError as e:
         print(f"❌ Compression failed: {e}")
+        return False
 
 
 def generate_glb_file_poisson(particles, voxel_centers, voxel_size, output_path, method="poisson"):

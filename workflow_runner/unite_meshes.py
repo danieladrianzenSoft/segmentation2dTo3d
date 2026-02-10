@@ -14,6 +14,7 @@ def run(config: dict):
         output_path=output_path,
         pattern=config.get("pattern", "*.glb"),
         compress=config.get("compress", False),
+        compress_in_place=config.get("compress_in_place", False),
         compression_level=config.get("compression_level", 10),
         max_files=config.get("max_files", None),
         start_index=config.get("start_index", None),

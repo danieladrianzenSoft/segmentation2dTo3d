@@ -5,6 +5,7 @@ def get_config():
         "output_name": "combined_pores.glb",
         "pattern": "*.glb",
         "compress": True,
+        "compress_in_place": False,
         "compression_level": 10,
         "max_files": None,
         "start_index": None,

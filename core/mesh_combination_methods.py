@@ -46,6 +46,7 @@ def unite_glb_files(
     output_path: str,
     pattern: str = "*.glb",
     compress: bool = False,
+    compress_in_place: bool = False,
     compression_level: int = 10,
     max_files: Optional[int] = None,
     start_index: Optional[int] = None,
@@ -63,6 +64,7 @@ def unite_glb_files(
         output_path: Path to write combined .glb file.
         pattern: Glob pattern to match input files (default: "*.glb").
         compress: If True, run Draco compression via `gltf-pipeline` (Node.js).
+        compress_in_place: If True, overwrite the uncompressed output with the compressed file.
         compression_level: Integer 0-10 passed through to the compressor.
         max_files: If provided, only use the first `max_files` files (applied after slicing).
         start_index: 0-based start index (alphabetical order) of files to include.
@@ -198,7 +200,10 @@ def unite_glb_files(
 
     if compress:
         compressed_path = output_path.replace(".glb", "_compressed.glb")
-        compress_glb(output_path, compressed_path, compression_level=compression_level)
-        return compressed_path
+        ok = compress_glb(output_path, compressed_path, compression_level=compression_level)
+        if ok and compress_in_place:
+            os.replace(compressed_path, output_path)
+            return output_path
+        return compressed_path if ok else output_path
 
     return output_path
