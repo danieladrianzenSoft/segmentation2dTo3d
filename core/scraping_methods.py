@@ -1,31 +1,40 @@
 import os
 import sys
 
-def list_files_by_extension(folder_path, extensions):
+def list_files_by_extension(folder_path, extensions, scrape_subdirectories=False):
     """
     List all files in a folder with specific extensions.
 
     Parameters:
         folder_path (str): Path to the folder to scrape.
         extensions (list): List of file extensions to include (e.g., ['.dat', '.json']).
+        scrape_subdirectories (bool): If True, recursively search subdirectories.
 
     Returns:
-        list: A list of file paths with the specified extensions.
+        dict: A dictionary with extensions as keys and lists of file paths as values.
     """
     result = {ext: [] for ext in extensions}
-    for f in os.listdir(folder_path):
-        for ext in extensions:
-            if f.endswith(ext):
-                result[ext].append(os.path.join(folder_path, f))
+    if scrape_subdirectories:
+        for root, dirs, files in os.walk(folder_path):
+            for f in files:
+                for ext in extensions:
+                    if f.endswith(ext):
+                        result[ext].append(os.path.join(root, f))
+    else:
+        for f in os.listdir(folder_path):
+            for ext in extensions:
+                if f.endswith(ext):
+                    result[ext].append(os.path.join(folder_path, f))
     return result
 
-def get_files(folder_path, extensions=None):
+def get_files(folder_path, extensions=None, scrape_subdirectories=False):
     """
     Search for files by extension in a given folder.
 
     Parameters:
         folder_path (str): Folder to search.
         extensions (list, optional): Extensions to search for. Default is ['.dat', '.json', '.npz'].
+        scrape_subdirectories (bool): If True, recursively search subdirectories.
 
     Returns:
         tuple: A tuple of lists of file paths, in the same order as the extensions input.
@@ -35,8 +44,10 @@ def get_files(folder_path, extensions=None):
         extensions = [".dat", ".json", ".npz"]
 
     print(f"Searching for files with extensions {extensions} in: {folder_path}")
+    if scrape_subdirectories:
+        print("Including subdirectories in search.")
 
-    all_files = list_files_by_extension(folder_path, extensions)
+    all_files = list_files_by_extension(folder_path, extensions, scrape_subdirectories=scrape_subdirectories)
 
     results = []
     total = 0

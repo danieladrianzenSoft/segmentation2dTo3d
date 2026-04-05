@@ -11,8 +11,8 @@ def get_config(input_dir: Path = None, output_dir: Path = None, filename: str = 
 	repo_root = Path(__file__).resolve().parents[1]
 	# input_dir = input_dir if input_dir else repo_root / "data" / "PoreDomainsToMesh" / "MATLAB"
 	# output_dir = output_dir if output_dir else repo_root / "data" / "PoreDomainsToMesh" / "Json"
-	input_dir = "/Users/mimc/Documents/MIMC/MaterialsAI/DanielAdrianzen/lovamap_gateway_data/PorePathData/MissingDomains_111825/subunits"
-	output_dir = "/Users/mimc/Documents/MIMC/MaterialsAI/DanielAdrianzen/lovamap_gateway_data/PorePathData/MissingDomains_111825/subunits_json"
+	input_dir = "/Users/dzen/Documents/LOVAMAP/Data/Domains/SubunitsMatlab/Real"
+	output_dir = "/Users/dzen/Documents/LOVAMAP/Data/Domains/Subunits/Real"
 	
 	config = {
 		"input_dir": input_dir,
@@ -20,6 +20,7 @@ def get_config(input_dir: Path = None, output_dir: Path = None, filename: str = 
 		# "filename": filename,
 		"file_index": 1,
 		"file_type": "mat",
-		"batch_process": True
+		"batch_process": True,
+		"scrape_subdirectories": True,
 	}
 	return config

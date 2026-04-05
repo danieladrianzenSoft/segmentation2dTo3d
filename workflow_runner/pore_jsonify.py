@@ -58,7 +58,8 @@ def save_pore_data(data, config, filename="pore_domain"):
 
 def run(config):
     # Scrape folder and validate input
-    mat_files, = get_files(config["input_dir"], extensions=[".mat"])
+    scrape_subdirectories = config.get("scrape_subdirectories", False)
+    mat_files, = get_files(config["input_dir"], extensions=[".mat"], scrape_subdirectories=scrape_subdirectories)
 
     if config.get("batch_process", False):
         # Combine all .dat and .json files for batch processing

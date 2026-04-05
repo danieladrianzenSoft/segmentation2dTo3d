@@ -14,6 +14,8 @@ def process_file(selected_file, config):
     # Unpack the result from parse_file
     domain_data, surface_data, domain_metadata, voxel_size, domain_size, domain_type = result
 
+    print(f"voxel_size: {voxel_size}, domain_size: {domain_size}")
+
     # Generate grid and process particles
     if (len(domain_size) == 3):
         bounds = (0, domain_size[0], 0, domain_size[1], 0, domain_size[2])
@@ -45,7 +47,14 @@ def process_file(selected_file, config):
     
 	# Generate .glb file
     output_dir = config.get("output_dir")
-    output_path = os.path.join(output_dir, f"{os.path.basename(selected_file).split('.')[0]}.glb")
+    if config.get("scrape_subdirectories"):
+        input_dir = str(config.get("input_dir"))
+        rel_dir = os.path.relpath(os.path.dirname(selected_file), input_dir)
+        sub_output_dir = os.path.join(output_dir, rel_dir)
+        os.makedirs(sub_output_dir, exist_ok=True)
+        output_path = os.path.join(sub_output_dir, f"{os.path.basename(selected_file).split('.')[0]}.glb")
+    else:
+        output_path = os.path.join(output_dir, f"{os.path.basename(selected_file).split('.')[0]}.glb")
    
     generate_mesh_marching_cubes(domain_data, filter_metadata(domain_metadata), voxel_centers, voxel_size, output_path, config=config)
 
@@ -66,7 +75,8 @@ def filter_metadata(metadata_dict):
         return filtered
 
 def run(config):
-    dat_files, json_files, npz_files = get_files(config["input_dir"])
+    scrape_subdirectories = config.get("scrape_subdirectories", False)
+    dat_files, json_files, npz_files = get_files(config["input_dir"], scrape_subdirectories=scrape_subdirectories)
 
     if config["batch_process"]:
         files_to_process = json_files

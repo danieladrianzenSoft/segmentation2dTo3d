@@ -397,7 +397,7 @@ def parse_raw_domain_data(data, domain_type):
             - voxel_dict (raw range-based representation)
     """
     voxel_size = data.get("voxel_size")
-    domain_size = tuple(int(d) for d in data.get("domain_size", ()))
+    domain_size = tuple(float(d) for d in data.get("domain_size", ()))
     voxel_count = data.get("voxel_count", None)
 
     # if not all(isinstance(d, (int, float)) and d > 0 for d in domain_size):

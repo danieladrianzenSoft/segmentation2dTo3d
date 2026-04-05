@@ -18,7 +18,7 @@ import subprocess
 from trimesh.visual import ColorVisuals
 import trimesh.transformations as tf
 
-def generate_mesh_marching_cubes(domain_entities, domain_entity_metadata, voxel_centers, voxel_size, output_path, config, include_color=True, target_faces=10000):
+def generate_mesh_marching_cubes(domain_entities, domain_entity_metadata, voxel_centers, voxel_size, output_path, config, include_color=True, target_faces=10000, color_shuffle_seed=0):
     """
     Generate a .glb mesh using Marching Cubes from skimage, ensuring each particle is independent and has unique colors.
 
@@ -37,7 +37,7 @@ def generate_mesh_marching_cubes(domain_entities, domain_entity_metadata, voxel_
 
     # Generate predefined colors
     # predefined_colors = np.random.rand(num_domain_entities, 3)  # RGB only (no alpha)
-    predefined_colors = distinguishable_colors(num_domain_entities, 'w')
+    predefined_colors = distinguishable_colors(num_domain_entities, 'w', shuffle_seed=color_shuffle_seed)
 
 
     for i, (domain_entity_label, voxel_indices) in enumerate(domain_entities.items()):
@@ -164,7 +164,7 @@ def save_metadata(scene, domain_entity_metadata, output_path):
 
     print(f"📄 Metadata saved: {metadata_path}")
 
-def distinguishable_colors(n_colors, bg='w', func=None, n_grid=40, L_min=15, L_max=85, gray_tol=0.05):
+def distinguishable_colors(n_colors, bg='w', func=None, n_grid=40, L_min=0, L_max=100, gray_tol=0.05, shuffle_seed=None):
     """
     Generate `n_colors` perceptually distinct colors that are not too light or too dark,
     or too gray.
@@ -174,9 +174,15 @@ def distinguishable_colors(n_colors, bg='w', func=None, n_grid=40, L_min=15, L_m
     - bg: The background color. Default is white ('w'), but can be a tuple (r, g, b).
     - func: Optional function for color conversion (default is None).
     - n_grid: Grid size for the color space. Increasing it gives more options.
-    - L_min: Minimum lightness threshold to avoid too dark colors (default 20).
-    - L_max: Maximum lightness threshold to avoid too light colors (default 80).
+    - L_min: Minimum lightness threshold to avoid too dark colors. Default 0 (no lower
+      filter); use e.g. 15 to exclude near-black colors.
+    - L_max: Maximum lightness threshold to avoid too light colors. Default 100 (no upper
+      filter); use e.g. 85 to exclude near-white colors. NOTE: values below ~88 will
+      exclude pure green/yellow/cyan from the palette and visibly reduce vibrancy.
     - gray_tol: Threshold below which RGB values are considered too similar (i.e. gray).
+    - shuffle_seed: Optional int. If provided, the greedy color list is Fisher-Yates
+      shuffled with this seed before being returned, so neighboring entity ids get
+      non-consecutive palette entries.
 
     Returns:
     - A numpy array of size (n_colors, 3) representing RGB colors in the range [0, 1].
@@ -242,6 +248,11 @@ def distinguishable_colors(n_colors, bg='w', func=None, n_grid=40, L_min=15, L_m
 
     # Convert to [0, 1] range (if your system expects it) or [0, 255] as needed
     selected_colors_rgb_float = np.array(selected_colors).clip(0, 1)  # Ensure the values are within the [0, 1] range
+
+    if shuffle_seed is not None:
+        rng = np.random.default_rng(shuffle_seed)
+        perm = rng.permutation(len(selected_colors_rgb_float))
+        selected_colors_rgb_float = selected_colors_rgb_float[perm]
 
     return selected_colors_rgb_float  # Return in [0, 1] range if needed for further processing
 
