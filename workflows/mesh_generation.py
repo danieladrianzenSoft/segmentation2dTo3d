@@ -13,8 +13,12 @@ def get_config(input_dir: Path = None, output_dir: Path = None):
     # output_dir = "/Users/mimc/Documents/MIMC/MaterialsAI/DanielAdrianzen/lovamap_gateway_data/PorePathData/lovamap_outputs/subunits_meshes"
     # input_dir = "/Users/dzen/Documents/LOVAMAP/Data/Domains/Subunits/Real"
     # output_dir = "/Users/dzen/Documents/LOVAMAP/Data/DomainMeshes/Subunits/Real"
-    input_dir = "/Users/dzen/Library/CloudStorage/Box-Box/MIMC/segmentation_2d3d/data/PoreDomainsToMesh/Json"
-    output_dir = "/Users/dzen/Library/CloudStorage/Box-Box/MIMC/segmentation_2d3d/data/PoreMeshes"
+    # input_dir = "/Users/dzen/Library/CloudStorage/Box-Box/Lindsay Riley PhD/Electronic Notebook/Void Space Project/MIMC/Data/Domains/Particles/Real/PhysicalContinuityFibroblasts_BioArxiv_SuarezArnedo"
+    # output_dir = "/Users/dzen/Library/CloudStorage/Box-Box/MIMC/segmentation_2d3d/data/PoreMeshes"
+    # dir_name = "PhysicalContinuityFibroblasts_BioArxiv_SuarezArnedo"
+    # input_dir = "/Users/dzen/Library/CloudStorage/Box-Box/Lindsay Riley PhD/Electronic Notebook/Void Space Project/MIMC/Data/Domains/Particles/Real/" + dir_name
+    # output_dir = output_dir if output_dir else repo_root / "data" / "ParticleMeshes" / dir_name
+
 
     ## PARTICLES
 
@@ -25,6 +29,9 @@ def get_config(input_dir: Path = None, output_dir: Path = None):
     # Real
     # input_dir = "/Users/dzen/Documents/LOVAMAP/Data/Domains/Particles/Real"
     # output_dir = "/Users/dzen/Documents/LOVAMAP/Data/DomainMeshes/Particles/Real"
+    dir_name = "PhysicalContinuityFibroblasts_BioArxiv_SuarezArnedo"
+    input_dir = input_dir if input_dir else repo_root / "data" / "SubunitJsons" / dir_name
+    output_dir = output_dir if output_dir else repo_root / "data" / "SubunitMeshes" / dir_name
 
     config = {
         "input_dir": input_dir,

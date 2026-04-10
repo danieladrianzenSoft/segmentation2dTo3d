@@ -169,8 +169,17 @@ def unite_glb_files(
                             apply_vertex_color(geom, file_color, alpha=alpha, verbose=False)
                         else:
                             pass
+                    # Recover the world transform for this geometry from the
+                    # source scene graph so that the glTF Y-up vs trimesh Z-up
+                    # node-level rotation is preserved.
+                    transform = None
+                    try:
+                        src_node_name = loaded.graph.geometry_nodes[name][0]
+                        transform, _ = loaded.graph.get(src_node_name)
+                    except Exception:
+                        transform = None
                     node_name = f"{os.path.basename(f)}_{name}"
-                    scene.add_geometry(geom, node_name=node_name)
+                    scene.add_geometry(geom, node_name=node_name, transform=transform)
                     added += 1
         except Exception as e:
             if verbose:
