@@ -147,7 +147,7 @@ def process_file(selected_file, metadata, config):
                 label_dir=output_dir_labels,
                 slice_dir=output_dir_slices,
                 metadata_path=config["metadata_path"],  # Adjust to match your dataset
-                axis=axis,        # Adjust based on your slicing axis
+                axis=axis, # Adjust based on your slicing axis
             )       
 
 def load_metadata(config):
