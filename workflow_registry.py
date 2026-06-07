@@ -3,4 +3,5 @@
 # Add workflow module names (without .py) that should be exposed in public mode.
 PUBLIC_WORKFLOWS = [
     "unite_meshes",
+    "mesh_generation",
 ]
