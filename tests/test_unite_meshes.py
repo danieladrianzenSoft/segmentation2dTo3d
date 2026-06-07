@@ -108,3 +108,4 @@ def test_numeric_sorting(tmp_path):
         assert vc is not None
         colors2.append(tuple(vc[0][:3]))
     assert len(set(colors2)) > 1
+
