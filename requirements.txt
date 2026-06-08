@@ -36,3 +36,5 @@ pygltflib==1.16.5
 scikit-learn==1.7.2
 scikit-image==0.25.2
 open3d==0.19
+plyfile==1.1
+tqdm==4.67.1
