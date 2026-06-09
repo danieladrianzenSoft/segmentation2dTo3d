@@ -1,16 +1,40 @@
 import os
-from core.file_parsing_methods import parse_file
-from core.mesh_generation_methods import generate_mesh_marching_cubes
+from core.file_parsing_methods import parse_file, parse_dat_file
+from core.mesh_generation_methods import generate_mesh_marching_cubes, generate_mesh_from_spheres
 from core.scraping_methods import get_files, select_input_file
 from core.voxelization_helper_methods import get_centered_grid
 
 def process_file(selected_file, config):
+    # Determine output path
+    output_dir = config.get("output_dir")
+    if config.get("scrape_subdirectories"):
+        input_dir = str(config.get("input_dir"))
+        rel_dir = os.path.relpath(os.path.dirname(selected_file), input_dir)
+        sub_output_dir = os.path.join(output_dir, rel_dir)
+        os.makedirs(sub_output_dir, exist_ok=True)
+        output_path = os.path.join(sub_output_dir, f"{os.path.basename(selected_file).split('.')[0]}.glb")
+    else:
+        output_path = os.path.join(output_dir, f"{os.path.basename(selected_file).split('.')[0]}.glb")
+
+    # Direct sphere mesh path for .dat files
+    if selected_file.endswith(".dat"):
+        print(f"Detected .dat file: {os.path.basename(selected_file)}")
+        centers, radii = parse_dat_file(selected_file)
+        if centers.size == 0 or radii.size == 0:
+            print(f"Skipping {selected_file}: No valid particles found.")
+            return
+        generate_mesh_from_spheres(centers, radii, output_path, config=config)
+        return
+
+    # Existing marching cubes path for .json files
+    print(f"Detected .json file: {os.path.basename(selected_file)}")
+
     # Select and parse file
     result = parse_file(config, selected_file)
 
     # Exit early if parse_file returns None
     if result is None: return
-    
+
     # Unpack the result from parse_file
     domain_data, surface_data, domain_metadata, voxel_size, domain_size, domain_type = result
 
@@ -21,7 +45,7 @@ def process_file(selected_file, config):
         bounds = (0, domain_size[0], 0, domain_size[1], 0, domain_size[2])
     else:
         bounds = tuple(domain_size)
-    
+
     voxel_centers, grid_size = get_centered_grid(bounds, voxel_size)
 
     if domain_type == "pore":
@@ -44,18 +68,7 @@ def process_file(selected_file, config):
             if not domain_data:
                 print("⚠️ No interior pores found to plot.")
                 return
-    
-	# Generate .glb file
-    output_dir = config.get("output_dir")
-    if config.get("scrape_subdirectories"):
-        input_dir = str(config.get("input_dir"))
-        rel_dir = os.path.relpath(os.path.dirname(selected_file), input_dir)
-        sub_output_dir = os.path.join(output_dir, rel_dir)
-        os.makedirs(sub_output_dir, exist_ok=True)
-        output_path = os.path.join(sub_output_dir, f"{os.path.basename(selected_file).split('.')[0]}.glb")
-    else:
-        output_path = os.path.join(output_dir, f"{os.path.basename(selected_file).split('.')[0]}.glb")
-   
+
     generate_mesh_marching_cubes(domain_data, filter_metadata(domain_metadata), voxel_centers, voxel_size, output_path, config=config)
 
 def filter_metadata(metadata_dict):
@@ -79,7 +92,7 @@ def run(config):
     dat_files, json_files, npz_files = get_files(config["input_dir"], scrape_subdirectories=scrape_subdirectories)
 
     if config["batch_process"]:
-        files_to_process = json_files
+        files_to_process = json_files + dat_files
     else:
         selected_file = select_input_file(config, [dat_files, json_files, npz_files])
         files_to_process = [selected_file]

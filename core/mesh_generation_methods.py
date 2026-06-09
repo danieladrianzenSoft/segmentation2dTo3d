@@ -422,6 +422,58 @@ def compress_glb(input_glb, output_glb, compression_level=10):
         return False
 
 
+def generate_mesh_from_spheres(centers, radii, output_path, config, subdivisions=3, color_shuffle_seed=0):
+    """
+    Generate a .glb mesh directly from sphere centroids and radii using icospheres.
+
+    Parameters:
+        centers (numpy.ndarray): (N, 3) array of sphere center coordinates.
+        radii (numpy.ndarray): (N,) array of sphere radii.
+        output_path (str): Path to save the .glb file.
+        config (dict): Configuration dictionary (uses save_mesh, save_metadata keys).
+        subdivisions (int): Number of icosphere subdivisions (default 3).
+        color_shuffle_seed (int): Seed for color shuffling.
+
+    Returns:
+        str: Path to the saved .glb file.
+    """
+    scene = trimesh.Scene()
+    num_spheres = len(radii)
+
+    predefined_colors = distinguishable_colors(num_spheres, 'w', shuffle_seed=color_shuffle_seed)
+
+    for i in range(num_spheres):
+        sphere_mesh = trimesh.creation.icosphere(subdivisions=subdivisions, radius=float(radii[i]))
+        sphere_mesh.apply_translation(centers[i])
+
+        # Assign per-vertex color
+        c = predefined_colors[i]
+        vertex_colors = np.hstack([
+            np.tile(c, (len(sphere_mesh.vertices), 1)),
+            np.ones((len(sphere_mesh.vertices), 1))
+        ])
+        sphere_mesh.visual = ColorVisuals(mesh=sphere_mesh, vertex_colors=vertex_colors)
+
+        # Use 1-indexed string ID to match marching cubes convention
+        label = str(i + 1)
+        scene.add_geometry(sphere_mesh, node_name=label)
+
+    if not scene.geometry:
+        raise ValueError("No sphere meshes were generated.")
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    if config.get("save_mesh", True):
+        scene.export(output_path, file_type="glb")
+        print(f"🎉 GLB file saved: {output_path}")
+        compress_glb(output_path, output_path)
+
+    if config.get("save_metadata", True):
+        save_metadata(scene, None, output_path=output_path)
+
+    return output_path
+
+
 def generate_glb_file_poisson(particles, voxel_centers, voxel_size, output_path, method="poisson"):
     """
     Generates a .glb file using Poisson or Ball Pivoting surface reconstruction.
