@@ -164,10 +164,69 @@ def save_metadata(scene, domain_entity_metadata, output_path):
 
     print(f"📄 Metadata saved: {metadata_path}")
 
+def _srgb_to_linear(c):
+    """sRGB companding → linear, matching the TS srgbToLinear helper."""
+    return np.where(c <= 0.04045, c / 12.92, np.power((c + 0.055) / 1.055, 2.4))
+
+def _rgb_to_lab(rgb):
+    """Convert an (N, 3) sRGB array in [0,1] to CIE-LAB (D65).
+
+    Uses the same constants as the TS pore-color-testing.ts implementation so
+    that both code-paths produce bit-identical LAB values (within float64
+    precision).
+    """
+    lin = _srgb_to_linear(rgb)
+
+    # sRGB → XYZ (D65) — same matrix as the TS version
+    X = 0.4124564 * lin[:, 0] + 0.3575761 * lin[:, 1] + 0.1804375 * lin[:, 2]
+    Y = 0.2126729 * lin[:, 0] + 0.7151522 * lin[:, 1] + 0.0721750 * lin[:, 2]
+    Z = 0.0193339 * lin[:, 0] + 0.1191920 * lin[:, 1] + 0.9503041 * lin[:, 2]
+
+    # D65 reference white
+    Xn, Yn, Zn = 0.95047, 1.0, 1.08883
+
+    delta = 6.0 / 29.0
+    delta3 = delta ** 3
+
+    def f(t):
+        return np.where(t > delta3, np.cbrt(t), t / (3 * delta * delta) + 4.0 / 29.0)
+
+    fx = f(X / Xn)
+    fy = f(Y / Yn)
+    fz = f(Z / Zn)
+
+    L = 116.0 * fy - 16.0
+    a = 500.0 * (fx - fy)
+    b = 200.0 * (fy - fz)
+
+    return np.column_stack([L, a, b])
+
+def _mulberry32(seed):
+    """Python port of the TS mulberry32 PRNG so the same seed produces the
+    same shuffle permutation in both code-paths."""
+    state = seed & 0xFFFFFFFF  # uint32
+
+    def next_val():
+        nonlocal state
+        state = (state + 0x6D2B79F5) & 0xFFFFFFFF
+        t = state
+        # Math.imul(t ^ (t >>> 15), t | 1)
+        t = ((t ^ (t >> 15)) * (t | 1)) & 0xFFFFFFFF
+        # t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+        imul = ((t ^ (t >> 7)) * (t | 61)) & 0xFFFFFFFF
+        t = (t ^ ((t + imul) & 0xFFFFFFFF)) & 0xFFFFFFFF
+        # ((t ^ (t >>> 14)) >>> 0) / 4294967296
+        return ((t ^ (t >> 14)) & 0xFFFFFFFF) / 4294967296.0
+
+    return next_val
+
 def distinguishable_colors(n_colors, bg='w', func=None, n_grid=40, L_min=0, L_max=100, gray_tol=0.05, shuffle_seed=None):
     """
     Generate `n_colors` perceptually distinct colors that are not too light or too dark,
     or too gray.
+
+    This is a direct port of the TS distinguishableColors() in lovamap_gw's
+    pore-color-testing.ts so that both systems produce identical palettes.
 
     Parameters:
     - n_colors: The number of distinct colors to generate.
@@ -182,79 +241,91 @@ def distinguishable_colors(n_colors, bg='w', func=None, n_grid=40, L_min=0, L_ma
     - gray_tol: Threshold below which RGB values are considered too similar (i.e. gray).
     - shuffle_seed: Optional int. If provided, the greedy color list is Fisher-Yates
       shuffled with this seed before being returned, so neighboring entity ids get
-      non-consecutive palette entries.
+      non-consecutive palette entries.  Uses the same mulberry32 PRNG as the TS
+      implementation for identical results.
 
     Returns:
     - A numpy array of size (n_colors, 3) representing RGB colors in the range [0, 1].
     """
-    
+
     # Set default background color (white or custom)
     if bg == 'w':
-        bg_rgb = np.array([1, 1, 1])  # white background
-    elif bg == 'b':
-        bg_rgb = np.array([0, 0, 0])  # black background
-    elif isinstance(bg, tuple) and len(bg) == 3:
-        bg_rgb = np.array(bg)  # custom background
+        bg_rgb = np.array([[1.0, 1.0, 1.0]])
+    elif bg == 'k':
+        bg_rgb = np.array([[0.0, 0.0, 0.0]])
+    elif isinstance(bg, (tuple, list)) and len(bg) == 3:
+        bg_rgb = np.array([bg], dtype=float)
     else:
-        raise ValueError("Background color must be 'w' or a tuple of RGB values.")
-    
-    # Generate a large grid of RGB colors in the [0, 1] range
-    x = np.linspace(0, 1, n_grid)
-    R, G, B = np.meshgrid(x, x, x)
-    rgb = np.vstack([R.flatten(), G.flatten(), B.flatten()]).T
-    
-    # Normalize to [0, 1] if RGB is in [0, 255] range
-    rgb_normalized = rgb  # Normalize to [0, 1]
-    # rgb_normalized = rgb
+        raise ValueError("Background color must be 'w', 'k', or a tuple of RGB values.")
 
-    # Convert RGB to LAB color space for perceptual distinctness
+    if n_colors <= 0 or n_grid < 2:
+        return np.empty((0, 3))
+
+    # Build the RGB candidate grid — iterate R slowest, G middle, B fastest
+    # to match the TS nested-loop order exactly (critical for tie-breaking in
+    # the greedy selection).
+    step = 1.0 / (n_grid - 1)
+    rgbs = []
+    for i in range(n_grid):
+        r = i * step
+        for j in range(n_grid):
+            g = j * step
+            for k in range(n_grid):
+                b = k * step
+
+                gray_score = max(abs(r - g), abs(r - b), abs(g - b))
+                if gray_score < gray_tol:
+                    continue
+
+                rgbs.append((r, g, b))
+
+    rgb = np.array(rgbs, dtype=float)
+
+    # Convert to LAB using the same manual conversion as the TS code
     if func is None:
-        lab = color.rgb2lab(rgb_normalized)  # Convert RGB to LAB using default function
-        bg_lab = color.rgb2lab(bg_rgb.reshape(1, 1, 3)).reshape(1, 3)  # Normalize background
+        lab = _rgb_to_lab(rgb)
+        bg_lab = _rgb_to_lab(bg_rgb)
     else:
-        lab = func(rgb_normalized)
+        lab = func(rgb)
         bg_lab = func(bg_rgb)
-    
-    # Filter out colors that are too light or too dark based on the L value
-    L = lab[:, 0]  # L value represents lightness
-    lightness_mask = (L > L_min) & (L < L_max)
-    # Vectorized gray rejection for speed
-    gray_mask = (
-        (np.abs(rgb[:, 0] - rgb[:, 1]) >= gray_tol) |
-        (np.abs(rgb[:, 0] - rgb[:, 2]) >= gray_tol) |
-        (np.abs(rgb[:, 1] - rgb[:, 2]) >= gray_tol)
-    )
-    
-    combined_mask = lightness_mask & gray_mask
-    lab_filtered = lab[combined_mask]
-    rgb_filtered = rgb_normalized[combined_mask]
-    
-    if rgb_filtered.shape[0] < n_colors:
-        raise ValueError(f"Not enough distinct colors available within the specified lightness range (L: {L_min}-{L_max}).")
-    
-    # Greedy selection of the most distinct colors from the grid.
-    # Maintain a running minimum distance to any selected color to avoid
-    # recomputing full pairwise distances each iteration.
-    selected_colors = []
-    min_dist = pairwise_distances(lab_filtered, bg_lab).reshape(-1)
 
-    for _ in range(n_colors):
-        farthest_color_index = int(np.argmax(min_dist))
-        selected_colors.append(rgb_filtered[farthest_color_index])
+    # Filter by lightness (strict inequality, matching TS: <= L_min or >= L_max → skip)
+    L = lab[:, 0]
+    keep = (L > L_min) & (L < L_max)
+    rgb = rgb[keep]
+    lab = lab[keep]
 
-        # Update min_dist with distances to the newly selected color
-        new_dist = pairwise_distances(lab_filtered, lab_filtered[farthest_color_index:farthest_color_index + 1]).reshape(-1)
+    if len(rgb) < n_colors:
+        raise ValueError(
+            f"Not enough distinct colors available within the specified "
+            f"lightness range (L: {L_min}-{L_max})."
+        )
+
+    # Seed min_dist from background (squared Euclidean in LAB, matching TS)
+    diff = lab - bg_lab  # broadcast (N,3) - (1,3)
+    min_dist = np.sum(diff * diff, axis=1)
+
+    # Greedy farthest-point selection
+    count = min(n_colors, len(rgb))
+    selected = np.empty((count, 3), dtype=float)
+    for n in range(count):
+        idx = int(np.argmax(min_dist))
+        selected[n] = rgb[idx]
+
+        d = lab - lab[idx]
+        new_dist = np.sum(d * d, axis=1)
         min_dist = np.minimum(min_dist, new_dist)
 
-    # Convert to [0, 1] range (if your system expects it) or [0, 255] as needed
-    selected_colors_rgb_float = np.array(selected_colors).clip(0, 1)  # Ensure the values are within the [0, 1] range
-
+    # Fisher-Yates shuffle with mulberry32 PRNG (matches TS shuffleInPlace)
     if shuffle_seed is not None:
-        rng = np.random.default_rng(shuffle_seed)
-        perm = rng.permutation(len(selected_colors_rgb_float))
-        selected_colors_rgb_float = selected_colors_rgb_float[perm]
+        rand = _mulberry32(shuffle_seed)
+        arr = list(range(len(selected)))
+        for i in range(len(arr) - 1, 0, -1):
+            j = int(rand() * (i + 1))
+            arr[i], arr[j] = arr[j], arr[i]
+        selected = selected[arr]
 
-    return selected_colors_rgb_float  # Return in [0, 1] range if needed for further processing
+    return selected
 
 
 def color_scene_unique(scene: trimesh.Scene, colors=None, alpha: float = 1.0, verbose: bool = True) -> trimesh.Scene:
