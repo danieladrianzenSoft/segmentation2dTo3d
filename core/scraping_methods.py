@@ -41,7 +41,7 @@ def get_files(folder_path, extensions=None, scrape_subdirectories=False):
     """
 
     if extensions is None:
-        extensions = [".dat", ".json", ".npz"]
+        extensions = [".dat", ".txt", ".csv", ".json", ".npz"]
 
     print(f"Searching for files with extensions {extensions} in: {folder_path}")
     if scrape_subdirectories:
@@ -81,7 +81,7 @@ def select_input_file(config, file_lists, extensions=None):
     """
     # If extensions not provided, assume default
     if extensions is None:
-        extensions = ['.dat', '.json', '.npz']
+        extensions = ['.dat', '.txt', '.csv', '.json', '.npz']
 
     # Use filename override if provided
     filename = config.get("filename")
@@ -119,7 +119,7 @@ def select_input_file(config, file_lists, extensions=None):
 
     # Default extension order
     if extensions is None:
-        extensions = ['.dat', '.json', '.npz']
+        extensions = ['.dat', '.txt', '.csv', '.json', '.npz']
 
     if ext not in extensions:
         print(f"Extension '{ext}' not in provided extensions list.")

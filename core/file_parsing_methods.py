@@ -20,7 +20,7 @@ def parse_file(config, selected_file):
     """
     print(f"Selected: {os.path.basename(selected_file)}")
 
-    if selected_file.endswith(".dat"):
+    if _is_tabular_particle_file(selected_file):
         centers, radii = parse_dat_file(selected_file)
         if centers.size == 0 or radii.size == 0:
             print(f"Skipping processing for file {selected_file}: No valid particles found.")
@@ -94,12 +94,20 @@ def detect_domain_type(json_data):
     else:
         raise ValueError("Unrecognized domain type: expected 'bead_data' or 'pores'.")
     
+def _is_tabular_particle_file(filepath):
+    """Check if a file is a tabular particle file (.dat, .txt, or .csv)."""
+    return filepath.endswith((".dat", ".txt", ".csv"))
+
 def parse_dat_file(filepath):
     """
-    Parse a .dat file to extract x, y, z coordinates and radii of spheres.
+    Parse a tabular particle file (.dat, .txt, or .csv) to extract x, y, z
+    coordinates and radii of spheres.
+
+    All three formats are expected to contain four numeric columns (x, y, z, r)
+    per line.  .csv files use comma delimiters; .dat and .txt use whitespace.
 
     Parameters:
-        filepath (str): Path to the .dat file.
+        filepath (str): Path to the file.
 
     Returns:
         tuple: A tuple containing:
@@ -108,6 +116,8 @@ def parse_dat_file(filepath):
     """
     centers = []
     radii = []
+
+    is_csv = filepath.endswith(".csv")
 
     with open(filepath, 'r') as file:
         for line_number, line in enumerate(file, start=1):
@@ -118,19 +128,19 @@ def parse_dat_file(filepath):
                 continue
 
             # Attempt to split and validate the line
-            values = line.split()
+            values = line.split(",") if is_csv else line.split()
             if len(values) != 4:
                 continue
 
             try:
                 # Convert values to floats
-                x, y, z, r = map(float, values)
+                x, y, z, r = map(float, (v.strip() for v in values))
                 centers.append([x, y, z])
                 radii.append(r)
             except ValueError:
                 print(f"Skipping line {line_number}: Could not convert all columns to float.")
                 continue
-    
+
     # Check if results are empty and return an empty tuple if no valid data
     if not centers or not radii:
         print(f"No valid data found in file: {filepath}. Skipping this file.")

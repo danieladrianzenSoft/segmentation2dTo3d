@@ -25,58 +25,69 @@ Configure via `configs/mesh_generation.json` or environment variables.
                         mesh_generation workflow
                         =======================
 
-  ┌──────────┐     ┌──────────┐     ┌──────────┐
-  │  .dat    │     │  .json   │     │  .npz    │
-  │ (spheres)│     │ (voxels) │     │ (grids)  │
-  └────┬─────┘     └────┬─────┘     └────┬─────┘
-       │                │                │
-       ▼                ▼                ▼
-  parse_dat_file   parse_json_file  parse_npz_file
-       │                │                │
-       │                ├────────────────┘
-       │                ▼
-       │         get_centered_grid()
-       │                │
-       │         [filter edge pores]
-       │                │
-       ▼                ▼
-  generate_mesh    generate_mesh
-  _from_spheres    _marching_cubes
-       │                │
-       │    ┌───────────┤
-       │    │           │
-       ▼    ▼           ▼
-    distinguishable   marching_cubes
-    _colors()         + simplify_mesh
-       │                │
-       ▼                ▼
-    sRGB → linear    sRGB → linear
-    color conversion color conversion
-       │                │
-       └───────┬────────┘
-               ▼
-         trimesh.Scene
-               │
-          ┌────┴────┐
-          ▼         ▼
-       .glb      _metadata
-    (Draco)       .json
+  ┌──────────────────┐  ┌──────────┐  ┌──────────┐
+  │ .dat / .txt / .csv│  │  .json   │  │  .npz    │
+  │    (spheres)      │  │ (voxels) │  │ (grids)  │
+  └────────┬──────────┘  └────┬─────┘  └────┬─────┘
+           │                  │              │
+           ▼                  ▼              ▼
+      parse_dat_file    parse_json_file  parse_npz_file
+           │                  │              │
+           │                  ├──────────────┘
+           │                  ▼
+           │           get_centered_grid()
+           │                  │
+           │           [filter edge pores]
+           │                  │
+           ▼                  ▼
+      generate_mesh      generate_mesh
+      _from_spheres      _marching_cubes
+           │                  │
+           │      ┌───────────┤
+           │      │           │
+           ▼      ▼           ▼
+        distinguishable   marching_cubes
+        _colors()         + simplify_mesh
+           │                  │
+           ▼                  ▼
+        sRGB → linear    sRGB → linear
+        color conversion color conversion
+           │                  │
+           └───────┬──────────┘
+                   ▼
+             trimesh.Scene
+                   │
+              ┌────┴────┐
+              ▼         ▼
+           .glb      _metadata
+        (Draco)       .json
 ```
 
 ---
 
 ## Supported Input Formats
 
-### `.dat` — Sphere Definitions
+### `.dat` / `.txt` / `.csv` — Sphere Definitions
 
-Space-separated text file with one sphere per line:
+Tabular text files with one sphere per line (four numeric columns: x, y, z, radius).
+All three formats are parsed by `parse_dat_file()` with identical validation:
+
+- `.dat` and `.txt` — whitespace-separated
+- `.csv` — comma-separated
 
 ```
+# .dat / .txt (whitespace-separated)
 x   y   z   radius
 1.5 2.0 3.1 0.75
 4.2 1.8 2.9 0.60
-...
+
+# .csv (comma-separated)
+1.5,2.0,3.1,0.75
+4.2,1.8,2.9,0.60
 ```
+
+Lines that are empty, start with non-numeric characters, or don't have exactly
+four columns are skipped. This allows comment/header lines to be present.
 
 **Pipeline:** `parse_dat_file()` → `generate_mesh_from_spheres()` (icospheres)
 
@@ -157,7 +168,7 @@ For each entity (pore/particle):
 - Target faces: `10,000` per entity (via Open3D quadric decimation)
 - Grid padding: `+1` on all sides to prevent boundary clipping
 
-### 2. Icospheres (`.dat` input)
+### 2. Icospheres (`.dat` / `.txt` / `.csv` input)
 
 Generates meshes directly from sphere centroids and radii.
 
@@ -257,7 +268,7 @@ scene graph, allowing lovamap_gw to associate metadata with rendered meshes.
 |-------------------------|--------|---------|-----------------------------------------------------|
 | `input_dir`             | path   | —       | Source directory for input files                     |
 | `output_dir`            | path   | —       | Destination for `.glb` and metadata files            |
-| `file_type`             | string | `json`  | Input format: `"json"`, `"dat"`, or `"npz"`         |
+| `file_type`             | string | `json`  | Input format: `"json"`, `"dat"`, `"txt"`, `"csv"`, or `"npz"` |
 | `file_index`            | int    | `1`     | 1-based index for single-file mode                   |
 | `batch_process`         | bool   | `true`  | Process all files (`true`) or one by index (`false`) |
 | `show_edge_pores`       | bool   | `true`  | Include pores touching the domain boundary           |
@@ -305,5 +316,5 @@ scene graph, allowing lovamap_gw to associate metadata with rendered meshes.
 | No valid entities after filtering  | `ValueError` raised                          |
 | Mesh simplification fails          | Falls back to unsimplified mesh              |
 | Draco compression fails            | Saves uncompressed `.glb` with warning       |
-| `.dat` line has non-numeric data   | Line skipped silently                        |
+| `.dat`/`.txt`/`.csv` line has non-numeric data | Line skipped silently              |
 | No files found in `input_dir`      | Exit with error message                      |

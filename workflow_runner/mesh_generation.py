@@ -16,9 +16,9 @@ def process_file(selected_file, config):
     else:
         output_path = os.path.join(output_dir, f"{os.path.basename(selected_file).split('.')[0]}.glb")
 
-    # Direct sphere mesh path for .dat files
-    if selected_file.endswith(".dat"):
-        print(f"Detected .dat file: {os.path.basename(selected_file)}")
+    # Direct sphere mesh path for tabular particle files (.dat, .txt, .csv)
+    if selected_file.endswith((".dat", ".txt", ".csv")):
+        print(f"Detected tabular particle file: {os.path.basename(selected_file)}")
         centers, radii = parse_dat_file(selected_file)
         if centers.size == 0 or radii.size == 0:
             print(f"Skipping {selected_file}: No valid particles found.")
@@ -89,12 +89,12 @@ def filter_metadata(metadata_dict):
 
 def run(config):
     scrape_subdirectories = config.get("scrape_subdirectories", False)
-    dat_files, json_files, npz_files = get_files(config["input_dir"], scrape_subdirectories=scrape_subdirectories)
+    dat_files, txt_files, csv_files, json_files, npz_files = get_files(config["input_dir"], scrape_subdirectories=scrape_subdirectories)
 
     if config["batch_process"]:
-        files_to_process = json_files + dat_files
+        files_to_process = json_files + dat_files + txt_files + csv_files
     else:
-        selected_file = select_input_file(config, [dat_files, json_files, npz_files])
+        selected_file = select_input_file(config, [dat_files, txt_files, csv_files, json_files, npz_files])
         files_to_process = [selected_file]
 
     for selected_file in files_to_process:
