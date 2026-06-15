@@ -92,11 +92,13 @@ def generate_mesh_marching_cubes(domain_entities, domain_entity_metadata, voxel_
             domain_entity_mesh.fix_normals()
 
             if include_color == True:
-                # Assign per-vertex color
-                color = predefined_colors[i]
-                vertex_colors = np.hstack([np.tile(color, (len(verts), 1)), np.ones((len(verts), 1))])  # RGBA
-                # vertex_colors = np.tile(color, (len(verts), 1))
-                # domain_entity_mesh.visual.vertex_colors = vertex_colors  # Apply colors
+                # Assign per-vertex color.
+                # Convert sRGB → linear RGB because glTF vertex colors are
+                # stored in linear space; the viewer (Three.js) will apply
+                # sRGB encoding for display.
+                color_srgb = predefined_colors[i]
+                color_linear = _srgb_to_linear(color_srgb)
+                vertex_colors = np.hstack([np.tile(color_linear, (len(verts), 1)), np.ones((len(verts), 1))])  # RGBA
                 domain_entity_mesh.visual = ColorVisuals(mesh=domain_entity_mesh, vertex_colors=vertex_colors)
 
             # domain_entity_mesh.vertices = np.array(domain_entity_mesh.vertices, dtype=np.float16)  # Convert to 16-bit
@@ -354,10 +356,10 @@ def color_scene_unique(scene: trimesh.Scene, colors=None, alpha: float = 1.0, ve
         times = int(np.ceil(n / len(colors)))
         colors = (colors * times)[:n]
 
-    # Apply colors in scene order
+    # Apply colors in scene order (sRGB → linear for glTF vertex colors)
     for idx, (name, geom) in enumerate(list(scene.geometry.items())):
         try:
-            c = np.array(colors[idx])
+            c = _srgb_to_linear(np.array(colors[idx]))
             # per-vertex RGBA
             vertex_colors = np.hstack([np.tile(c, (len(geom.vertices), 1)), np.ones((len(geom.vertices), 1)) * float(alpha)])
             geom.visual = ColorVisuals(mesh=geom, vertex_colors=vertex_colors)
@@ -378,7 +380,7 @@ def apply_material_color(mesh: trimesh.Trimesh, color, alpha: float = 1.0, verbo
     environments. Prefer `apply_vertex_color` for reliable export.
     """
     try:
-        rgb = list(color)[:3]
+        rgb = _srgb_to_linear(np.array(list(color)[:3]))
         material = trimesh.visual.material.SimpleMaterial(diffuse=rgb)
         mesh.visual = trimesh.visual.TextureVisuals(material=material)
         if verbose:
@@ -396,7 +398,7 @@ def apply_vertex_color(mesh: trimesh.Trimesh, color, alpha: float = 1.0, verbose
     so we avoid coloring the whole Scene in a second pass.
     """
     try:
-        c = np.array(list(color)[:3])
+        c = _srgb_to_linear(np.array(list(color)[:3]))
         vertex_colors = np.hstack([np.tile(c, (len(mesh.vertices), 1)), np.ones((len(mesh.vertices), 1)) * float(alpha)])
         mesh.visual = ColorVisuals(mesh=mesh, vertex_colors=vertex_colors)
         if verbose:
@@ -517,10 +519,10 @@ def generate_mesh_from_spheres(centers, radii, output_path, config, subdivisions
         sphere_mesh = trimesh.creation.icosphere(subdivisions=subdivisions, radius=float(radii[i]))
         sphere_mesh.apply_translation(centers[i])
 
-        # Assign per-vertex color
-        c = predefined_colors[i]
+        # Assign per-vertex color (sRGB → linear for glTF)
+        c_linear = _srgb_to_linear(predefined_colors[i])
         vertex_colors = np.hstack([
-            np.tile(c, (len(sphere_mesh.vertices), 1)),
+            np.tile(c_linear, (len(sphere_mesh.vertices), 1)),
             np.ones((len(sphere_mesh.vertices), 1))
         ])
         sphere_mesh.visual = ColorVisuals(mesh=sphere_mesh, vertex_colors=vertex_colors)
@@ -611,9 +613,9 @@ def generate_glb_file_poisson(particles, voxel_centers, voxel_size, output_path,
             # ✅ Apply smoothing
             mesh_trimesh = trimesh.smoothing.filter_taubin(mesh_trimesh, lamb=0.5, nu=-0.53, iterations=5)
 
-            # Assign color
-            color = predefined_colors[i]
-            material = trimesh.visual.material.SimpleMaterial(diffuse=color[:3])
+            # Assign color (sRGB → linear for glTF)
+            color_linear = _srgb_to_linear(predefined_colors[i][:3])
+            material = trimesh.visual.material.SimpleMaterial(diffuse=color_linear)
             mesh_trimesh.visual = trimesh.visual.TextureVisuals(material=material)
 
             # Store metadata
@@ -671,10 +673,10 @@ def generate_glb_file_delauney(particles, voxel_centers, voxel_size, output_path
         delaunay = Delaunay(coords)
         particle_mesh = trimesh.Trimesh(vertices=coords, faces=delaunay.simplices)
 
-        # Assign precomputed color as material
-        color = predefined_colors[i][:3]  # RGB only
+        # Assign precomputed color as material (sRGB → linear for glTF)
+        color_linear = _srgb_to_linear(predefined_colors[i][:3])
         material = trimesh.visual.material.SimpleMaterial(
-            diffuse=color,  
+            diffuse=color_linear,
             ambient=[0.1, 0.1, 0.1],  # Darker ambient for more shadow contrast
             specular=[0.9, 0.9, 0.9],  # Strong specular highlights
             shininess=120.0  # Increase shininess for better light contrast
@@ -750,8 +752,10 @@ def generate_glb_file_convex_hull(particles, voxel_centers, voxel_size, output_p
         #     specular=[1.0, 1.0, 1.0],  # Strong specular highlights
         #     shininess=120.0  # Increase shininess for better light contrast
         # )
+        # sRGB → linear for glTF
+        color_linear = _srgb_to_linear(predefined_colors[i][:3])
         material = trimesh.visual.material.SimpleMaterial(
-            diffuse=color[:3],  
+            diffuse=color_linear,
             ambient=[0.1, 0.1, 0.1],  # Darker ambient for more shadow contrast
             specular=[0.9, 0.9, 0.9],  # Strong specular highlights
             shininess=120.0  # Increase shininess for better light contrast
