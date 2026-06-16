@@ -225,6 +225,24 @@ Viewers (Three.js, etc.) apply sRGB encoding for display automatically.
 
 ---
 
+## Coordinate System Convention
+
+Microscopy data typically uses a **Z-up** coordinate system (X and Y form the
+image plane, Z is the optical/stacking axis). The glTF 2.0 spec, however,
+defines a right-handed **Y-up** system (Y vertical, Z toward the viewer).
+
+To produce standard-compliant `.glb` files that display correctly in any viewer
+(Three.js, Blender, online viewers, etc.), the mesh generation workflows swap
+Y and Z axes before export:
+
+- **`mesh_generation`** — applies the Y↔Z swap automatically in
+  `generate_mesh_marching_cubes()` when mapping voxel coordinates.
+- **`unite_meshes`** — accepts an optional `flip_yz` parameter (default
+  `false`). Set to `true` when combining meshes that are still in Z-up
+  (microscopy) coordinates so the output follows the same Y-up convention.
+
+---
+
 ## Output Files
 
 ### `.glb` — 3D Mesh

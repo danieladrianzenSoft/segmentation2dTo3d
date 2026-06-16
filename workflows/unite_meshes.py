@@ -14,4 +14,5 @@ def get_config():
         "color_method": "per_mesh",
         "alpha": 1.0,
         "numeric_sort": True,
+        "flip_yz": False,
     }
