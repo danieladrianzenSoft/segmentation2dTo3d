@@ -16,6 +16,10 @@ def process_file(selected_file, config):
     else:
         output_path = os.path.join(output_dir, f"{os.path.basename(selected_file).split('.')[0]}.glb")
 
+    if not config.get("overwrite_existing", True) and os.path.exists(output_path):
+        print(f"Skipping {os.path.basename(selected_file)}: output already exists.")
+        return
+
     # Direct sphere mesh path for .dat files
     if selected_file.endswith(".dat"):
         print(f"Detected .dat file: {os.path.basename(selected_file)}")

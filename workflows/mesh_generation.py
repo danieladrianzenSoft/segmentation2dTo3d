@@ -9,8 +9,8 @@ def get_config(input_dir: Path = None, output_dir: Path = None):
     # output_dir = output_dir if output_dir else repo_root / "data" / "PoreMeshes"
 
     # Real
-    # input_dir = "/Users/mimc/Documents/MIMC/MaterialsAI/DanielAdrianzen/lovamap_gateway_data/PorePathData/lovamap_outputs/subunits_json"
-    # output_dir = "/Users/mimc/Documents/MIMC/MaterialsAI/DanielAdrianzen/lovamap_gateway_data/PorePathData/lovamap_outputs/subunits_meshes"
+    input_dir = "/Users/mimc/Documents/MIMC/MaterialsAI/DanielAdrianzen/lovamap_gateway_data/PorePathData/lovamap_outputs/subunits_json"
+    output_dir = "/Users/mimc/Documents/MIMC/MaterialsAI/DanielAdrianzen/lovamap_gateway_data/PorePathData/lovamap_outputs/subunits_meshes/matlab_colors"
     # input_dir = "/Users/dzen/Documents/LOVAMAP/Data/Domains/Subunits/Real"
     # output_dir = "/Users/dzen/Documents/LOVAMAP/Data/DomainMeshes/Subunits/Real"
     # input_dir = "/Users/dzen/Library/CloudStorage/Box-Box/Lindsay Riley PhD/Electronic Notebook/Void Space Project/MIMC/Data/Domains/Particles/Real/PhysicalContinuityFibroblasts_BioArxiv_SuarezArnedo"
@@ -29,9 +29,11 @@ def get_config(input_dir: Path = None, output_dir: Path = None):
     # Real
     # input_dir = "/Users/dzen/Documents/LOVAMAP/Data/Domains/Particles/Real"
     # output_dir = "/Users/dzen/Documents/LOVAMAP/Data/DomainMeshes/Particles/Real"
-    dir_name = "PhysicalContinuityFibroblasts_BioArxiv_SuarezArnedo"
-    input_dir = input_dir if input_dir else repo_root / "data" / "SubunitJsons" / dir_name
-    output_dir = output_dir if output_dir else repo_root / "data" / "SubunitMeshes" / dir_name
+    
+    
+    # dir_name = "PhysicalContinuityFibroblasts_BioArxiv_SuarezArnedo"
+    # input_dir = input_dir if input_dir else repo_root / "data" / "SubunitJsons" / dir_name
+    # output_dir = output_dir if output_dir else repo_root / "data" / "SubunitMeshes" / dir_name
 
     config = {
         "input_dir": input_dir,
@@ -43,6 +45,7 @@ def get_config(input_dir: Path = None, output_dir: Path = None):
         "save_metadata": True,
         "save_mesh": True,
         "scrape_subdirectories": False,
+        "overwrite_existing": False,
         # "filename": "labeledDomain_soft-spheres_100_v0.json"
     }
     
