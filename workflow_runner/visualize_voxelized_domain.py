@@ -72,9 +72,9 @@ def process_file(selected_file, config):
     
 def run(config):   
     # Scrape folder and validate input
-    dat_files, json_files, npz_files = get_files(config["folder_path"])
+    dat_files, json_files, npz_files = get_files(config["folder_path"], extensions=[".dat", ".json", ".npz"])
 
-    selected_file = select_input_file(config, [dat_files, json_files, npz_files])
+    selected_file = select_input_file(config, [dat_files, json_files, npz_files], extensions=[".dat", ".json", ".npz"])
     process_file(selected_file=selected_file, config=config)
 
 

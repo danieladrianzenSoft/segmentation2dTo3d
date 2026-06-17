@@ -155,7 +155,7 @@ def main():
     config = get_workflow_config(workflow_method='standardize_json')
     
     # Scrape folder and validate input
-    dat_files, json_files, npz_files = get_files(config["folder_path"])
+    dat_files, json_files, npz_files = get_files(config["folder_path"], extensions=[".dat", ".json", ".npz"])
 
     if config["batch_process"]:
         # Combine all .dat and .json files for batch processing

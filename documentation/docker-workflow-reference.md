@@ -119,6 +119,7 @@ Combines multiple individual `.glb` mesh files into a single combined `.glb` fil
 | `color_method` | string | `"per_mesh"` | Coloring strategy: `"per_mesh"` or `"per_vertex"` |
 | `alpha` | float | `1.0` | Opacity (0.0 - 1.0) |
 | `numeric_sort` | bool | `true` | Sort files numerically (pore2 before pore10) |
+| `flip_yz` | bool | `false` | Swap Y and Z axes to convert Z-up (microscopy) to Y-up (glTF) |
 | `verbose` | bool | `false` | Print detailed progress |
 
 ### Example

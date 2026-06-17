@@ -55,6 +55,7 @@ def unite_glb_files(
     color_method: str = "per_mesh",  # 'material' (deprecated), 'vertex' (legacy), 'per_mesh' (fast per-mesh vertex coloring)
     alpha: float = 1.0,
     numeric_sort: bool = True,
+    flip_yz: bool = False,
     verbose: bool = True,
 ) -> str:
     """Combine multiple .glb files into a single .glb file.
@@ -71,6 +72,8 @@ def unite_glb_files(
         end_index: 0-based end index (inclusive) of files to include.
         color: If True, apply visually-distinct colors to each pore geometry before export.
         alpha: Alpha value to use for per-vertex coloring.
+        flip_yz: If True, swap Y and Z axes on each mesh's vertices to convert
+            from Z-up (microscopy convention) to Y-up (glTF convention).
         verbose: Print progress messages.
 
     Returns:
@@ -151,6 +154,8 @@ def unite_glb_files(
                 file_color = file_colors[idx]
 
             if isinstance(loaded, trimesh.Trimesh):
+                if flip_yz:
+                    loaded.vertices = loaded.vertices[:, [0, 2, 1]]
                 if color and file_color is not None:
                     if color_method in ("material", "per_mesh"):
                         # fast path: apply per-mesh vertex color (reliable export)
@@ -164,6 +169,8 @@ def unite_glb_files(
             else:
                 # loaded is a Scene
                 for name, geom in loaded.geometry.items():
+                    if flip_yz:
+                        geom.vertices = geom.vertices[:, [0, 2, 1]]
                     if color and file_color is not None:
                         if color_method in ("material", "per_mesh"):
                             apply_vertex_color(geom, file_color, alpha=alpha, verbose=False)

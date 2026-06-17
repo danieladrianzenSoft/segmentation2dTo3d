@@ -161,14 +161,14 @@ def load_metadata(config):
 
 def run(config):   
     # Scrape folder and validate input
-    dat_files, json_files, npz_files = get_files(config["folder_path"])
+    dat_files, json_files, npz_files = get_files(config["folder_path"], extensions=[".dat", ".json", ".npz"])
 
     if config["batch_process"]:
         # Combine all .dat and .json files for batch processing
         files_to_process = dat_files + json_files + npz_files
     else:
         # Validate input for single-file processing
-        selected_file = select_input_file(config, [dat_files, json_files, npz_files])
+        selected_file = select_input_file(config, [dat_files, json_files, npz_files], extensions=[".dat", ".json", ".npz"])
         files_to_process = [selected_file]
     
     # Load metadata if restart is enabled

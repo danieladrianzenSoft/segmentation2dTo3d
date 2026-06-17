@@ -23,6 +23,7 @@ def run(config: dict):
         color_method=config.get("color_method", "per_mesh"),
         alpha=config.get("alpha", 1.0),
         numeric_sort=config.get("numeric_sort", True),
+        flip_yz=config.get("flip_yz", False),
         verbose=True,
     )
 
