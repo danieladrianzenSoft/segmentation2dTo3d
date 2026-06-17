@@ -232,14 +232,14 @@ image plane, Z is the optical/stacking axis). The glTF 2.0 spec, however,
 defines a right-handed **Y-up** system (Y vertical, Z toward the viewer).
 
 To produce standard-compliant `.glb` files that display correctly in any viewer
-(Three.js, Blender, online viewers, etc.), the mesh generation workflows swap
-Y and Z axes before export:
+(Three.js, Blender, online viewers, etc.), `generate_mesh_marching_cubes()`
+swaps Y and Z axes automatically when mapping voxel coordinates to mesh
+vertices. This means all `.glb` files produced by this workflow are in Y-up
+(glTF) convention.
 
-- **`mesh_generation`** — applies the Y↔Z swap automatically in
-  `generate_mesh_marching_cubes()` when mapping voxel coordinates.
-- **`unite_meshes`** — accepts an optional `flip_yz` parameter (default
-  `false`). Set to `true` when combining meshes that are still in Z-up
-  (microscopy) coordinates so the output follows the same Y-up convention.
+When combining meshes from external sources that are still in Z-up coordinates,
+use the `flip_yz` option in the **unite_meshes** workflow
+(see [unite-meshes-workflow.md](unite-meshes-workflow.md)).
 
 ---
 
