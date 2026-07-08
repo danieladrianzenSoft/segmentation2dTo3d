@@ -48,7 +48,8 @@ def generate_mesh_marching_cubes(domain_entities, domain_entity_metadata, voxel_
         try:
             # Get actual 3D coordinates of voxel centers
             coords = voxel_centers[voxel_indices]  # Shape (M, 3)
-            # coords = voxel_centers[voxel_indices][:, [0, 2, 1]] # Switching y and z axes
+            if config.get("flip_yz", False):
+                coords = coords[:, [0, 2, 1]]  # Swap Y and Z axes
 
             # Compute the grid's min/max bounds
             x_min, y_min, z_min = coords.min(axis=0)
@@ -514,6 +515,9 @@ def generate_mesh_from_spheres(centers, radii, output_path, config, subdivisions
     num_spheres = len(radii)
 
     predefined_colors = distinguishable_colors(num_spheres, 'w', shuffle_seed=color_shuffle_seed)
+
+    if config.get("flip_yz", False):
+        centers = centers[:, [0, 2, 1]]  # Swap Y and Z axes
 
     for i in range(num_spheres):
         sphere_mesh = trimesh.creation.icosphere(subdivisions=subdivisions, radius=float(radii[i]))

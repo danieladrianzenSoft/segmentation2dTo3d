@@ -46,6 +46,7 @@ def get_config(input_dir: Path = None, output_dir: Path = None):
         "save_mesh": True,
         "scrape_subdirectories": False,
         "overwrite_existing": False,
+        "flip_yz": False,
         # "filename": "labeledDomain_soft-spheres_100_v0.json"
     }
     
