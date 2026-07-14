@@ -12,9 +12,9 @@ def process_file(selected_file, config):
         rel_dir = os.path.relpath(os.path.dirname(selected_file), input_dir)
         sub_output_dir = os.path.join(output_dir, rel_dir)
         os.makedirs(sub_output_dir, exist_ok=True)
-        output_path = os.path.join(sub_output_dir, f"{os.path.basename(selected_file).split('.')[0]}.glb")
+        output_path = os.path.join(sub_output_dir, f"{os.path.splitext(os.path.basename(selected_file))[0]}.glb")
     else:
-        output_path = os.path.join(output_dir, f"{os.path.basename(selected_file).split('.')[0]}.glb")
+        output_path = os.path.join(output_dir, f"{os.path.splitext(os.path.basename(selected_file))[0]}.glb")
 
     if not config.get("overwrite_existing", True) and os.path.exists(output_path):
         print(f"Skipping {os.path.basename(selected_file)}: output already exists.")
@@ -96,7 +96,21 @@ def run(config):
     dat_files, txt_files, csv_files, json_files, npz_files = get_files(config["input_dir"], scrape_subdirectories=scrape_subdirectories)
 
     if config["batch_process"]:
-        files_to_process = json_files + dat_files + txt_files + csv_files
+        file_type = config.get("file_type")
+        ext_to_files = {
+            "json": json_files,
+            "dat": dat_files,
+            "txt": txt_files,
+            "csv": csv_files,
+            "npz": npz_files,
+        }
+        if file_type:
+            if file_type not in ext_to_files:
+                raise ValueError(f"Unsupported file_type for batch: {file_type!r}. Supported: {list(ext_to_files)}")
+            files_to_process = ext_to_files[file_type]
+            print(f"Batch filtered to {len(files_to_process)} .{file_type} file(s) via file_type.")
+        else:
+            files_to_process = json_files + dat_files + txt_files + csv_files
     else:
         selected_file = select_input_file(config, [dat_files, txt_files, csv_files, json_files, npz_files])
         files_to_process = [selected_file]
