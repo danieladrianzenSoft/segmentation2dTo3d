@@ -13,7 +13,8 @@ def get_config(input_dir: Path = None, output_dir: Path = None):
     # output_dir = "/Users/mimc/Documents/MIMC/MaterialsAI/DanielAdrianzen/lovamap_gateway_data/PorePathData/lovamap_outputs/subunits_meshes/matlab_colors"
     # input_dir = "/Users/dzen/Documents/LOVAMAP/Data/Domains/Subunits/Real"
     # output_dir = "/Users/dzen/Documents/LOVAMAP/Data/DomainMeshes/Subunits/Real"
-    # input_dir = "/Users/dzen/Library/CloudStorage/Box-Box/Lindsay Riley PhD/Electronic Notebook/Void Space Project/MIMC/Data/Domains/Particles/Real/PhysicalContinuityFibroblasts_BioArxiv_SuarezArnedo"
+    # input_dir = "/Users/dzen/Library/CloudStorage/Box-Box/Lindsay Riley PhD/Electronic Notebook/Void Space Project/MIMC/Data/Domains/Particles"
+    # output_dir = "/Users/dzen/Library/CloudStorage/Box-Box/Lindsay Riley PhD/Electronic Notebook/Void Space Project/MIMC/Data/DomainMeshes/Particles"
     # output_dir = "/Users/dzen/Library/CloudStorage/Box-Box/MIMC/segmentation_2d3d/data/PoreMeshes"
     # dir_name = "PhysicalContinuityFibroblasts_BioArxiv_SuarezArnedo"
     # input_dir = "/Users/dzen/Library/CloudStorage/Box-Box/Lindsay Riley PhD/Electronic Notebook/Void Space Project/MIMC/Data/Domains/Particles/Real/" + dir_name
@@ -39,6 +40,14 @@ def get_config(input_dir: Path = None, output_dir: Path = None):
     # input_dir = input_dir if input_dir else repo_root / "data" / "SubunitJsons" / dir_name
     # output_dir = output_dir if output_dir else repo_root / "data" / "SubunitMeshes" / dir_name
 
+    # Local scratch (mirrors Box Particles tree; rsync outputs back to Box DomainMeshes/Particles when done)
+    # PARTICLES
+    input_dir = "/Users/mimc/local-scratch/Particles"
+    output_dir = "/Users/mimc/local-scratch/ParticleMeshes"
+    # Meshes
+    # input_dir = "/Users/mimc/local-scratch/Subunits"
+    # output_dir = "/Users/mimc/local-scratch/SubunitMeshes"
+
     config = {
         "input_dir": input_dir,
         "output_dir": output_dir,
@@ -48,7 +57,7 @@ def get_config(input_dir: Path = None, output_dir: Path = None):
         "show_edge_pores": True,
         "save_metadata": True,
         "save_mesh": True,
-        "scrape_subdirectories": False,
+        "scrape_subdirectories": True,
         "overwrite_existing": False,
         "flip_yz": False,
         # "filename": "EK081920_FLIP_488void_647gel_20X_segment_150.json"
