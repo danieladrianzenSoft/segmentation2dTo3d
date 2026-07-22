@@ -9,8 +9,8 @@ def get_config(input_dir: Path = None, output_dir: Path = None):
     # output_dir = output_dir if output_dir else repo_root / "data" / "PoreMeshes"
 
     # Real
-    input_dir = "/Users/mimc/Documents/MIMC/MaterialsAI/DanielAdrianzen/lovamap_gateway_data/PorePathData/lovamap_outputs/subunits_json"
-    output_dir = "/Users/mimc/Documents/MIMC/MaterialsAI/DanielAdrianzen/lovamap_gateway_data/PorePathData/lovamap_outputs/subunits_meshes/matlab_colors"
+    # input_dir = "/Users/mimc/Documents/MIMC/MaterialsAI/DanielAdrianzen/lovamap_gateway_data/PorePathData/lovamap_outputs/subunits_json"
+    # output_dir = "/Users/mimc/Documents/MIMC/MaterialsAI/DanielAdrianzen/lovamap_gateway_data/PorePathData/lovamap_outputs/subunits_meshes/matlab_colors"
     # input_dir = "/Users/dzen/Documents/LOVAMAP/Data/Domains/Subunits/Real"
     # output_dir = "/Users/dzen/Documents/LOVAMAP/Data/DomainMeshes/Subunits/Real"
     # input_dir = "/Users/dzen/Library/CloudStorage/Box-Box/Lindsay Riley PhD/Electronic Notebook/Void Space Project/MIMC/Data/Domains/Particles/Real/PhysicalContinuityFibroblasts_BioArxiv_SuarezArnedo"
@@ -26,7 +26,11 @@ def get_config(input_dir: Path = None, output_dir: Path = None):
     # input_dir = input_dir if input_dir else repo_root / "data" / "ParticleDomainsToMesh"
     # output_dir = output_dir if output_dir else repo_root / "data" / "ParticleMeshes"
 
-    # Real
+    # input_dir = "/Users/dzen/Documents/LOVAMAP/Repos/Cellpose-particle-segmentation/cellpose/experiments/rods_binary_3d_full"
+    input_dir = "/Users/dzen/Documents/LOVAMAP/Repos/Cellpose-particle-segmentation/cellpose/experiments/cubic_II001_binary_zstitch_fast_batch4_thr075"
+    output_dir = output_dir if output_dir else repo_root / "data" / "Evaluation" / "CellposeSegmentation" / "2d-stitch" / "Cubic_II001_batch4_thr075"
+    # input_dir = "/Users/dzen/Documents/LOVAMAP/Repos/Gong-3d-particle-segmentation/output/EK081920_FLIP_488void_647gel_20X" 
+    # output_dir = output_dir if output_dir else repo_root / "data" / "Evaluation" / "Gong"
     # input_dir = "/Users/dzen/Documents/LOVAMAP/Data/Domains/Particles/Real"
     # output_dir = "/Users/dzen/Documents/LOVAMAP/Data/DomainMeshes/Particles/Real"
     
@@ -47,7 +51,9 @@ def get_config(input_dir: Path = None, output_dir: Path = None):
         "scrape_subdirectories": False,
         "overwrite_existing": False,
         "flip_yz": False,
-        # "filename": "labeledDomain_soft-spheres_100_v0.json"
+        # "filename": "EK081920_FLIP_488void_647gel_20X_segment_150.json"
+        "filename": "Rods_3_1_Stack_1A_segment_150.json"
+        #"filename": "cellpose_particles.json"
     }
     
     return config

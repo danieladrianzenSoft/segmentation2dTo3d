@@ -87,12 +87,12 @@ def parse_file(config, selected_file):
         raise ValueError(f"Unsupported file type for {selected_file}")
 
 def detect_domain_type(json_data):
-    if "bead_data" in json_data:
+    if "bead_data" in json_data or "beads" in json_data:
         return "particle"
     elif "pores" in json_data:
         return "pore"
     else:
-        raise ValueError("Unrecognized domain type: expected 'bead_data' or 'pores'.")
+        raise ValueError("Unrecognized domain type: expected 'bead_data', 'beads', or 'pores'.")
     
 def _is_tabular_particle_file(filepath):
     """Check if a file is a tabular particle file (.dat, .txt, or .csv)."""
